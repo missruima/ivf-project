@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { searchAndFetchArticles } from '@/lib/services/pubmed';
 import { getResearchSystemPrompt } from '@/lib/prompts/research-system';
+import { getCommunityDataContext } from '@/lib/services/community-stats-context';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 import { checkTopicRelevance } from '@/lib/topic-guard';
 import type { PubMedCitation } from '@/types/chat';
@@ -60,7 +61,10 @@ export async function POST(request: Request) {
         .join('\n\n')
     : '';
 
-  const systemPrompt = getResearchSystemPrompt(pubmedContext);
+  // Fetch community data context (synchronous, fast)
+  const communityContext = getCommunityDataContext();
+
+  const systemPrompt = getResearchSystemPrompt(pubmedContext, communityContext);
 
   // Stream Claude response
   const encoder = new TextEncoder();
@@ -69,7 +73,7 @@ export async function POST(request: Request) {
       try {
         const anthropicStream = anthropic.messages.stream({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1500,
+          max_tokens: 2000,
           system: systemPrompt,
           messages: body.messages.map((m) => ({
             role: m.role,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,13 +17,21 @@ import {
   AMH_RANGE_LABELS,
   PROTOCOL_TYPE_LABELS,
 } from '@/lib/constants/ranges';
-import type { StatsResponse, AggregateGroup } from '@/types/stats';
+import type { StatsResponse, AggregateGroup, FunnelStats } from '@/types/stats';
 
 const GROUP_OPTIONS = [
-  { value: 'age_bracket', label: 'Age' },
+  { value: 'age', label: 'Age (by year)' },
+  { value: 'age_bracket', label: 'Age (groups)' },
   { value: 'protocol_type', label: 'Protocol Type' },
   { value: 'amh_range', label: 'AMH Range' },
 ];
+
+const GROUP_X_LABELS: Record<string, string> = {
+  age: 'Age (years)',
+  age_bracket: 'Age Group',
+  protocol_type: 'Protocol Type',
+  amh_range: 'AMH (ng/mL)',
+};
 
 // Filter options — "all" means no filter
 const AGE_FILTER_OPTIONS = [
@@ -59,7 +67,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 export default function DashboardPage() {
-  const [groupBy, setGroupBy] = useState('age_bracket');
+  const [groupBy, setGroupBy] = useState('age');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -228,6 +236,11 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Population funnel */}
+      {stats && !isLoading && stats.funnel.totalCycles > 0 && (
+        <FunnelCard funnel={stats.funnel} filtered={hasActiveFilters} />
+      )}
+
       {stats && !isLoading && stats.groups.length === 0 && (
         <Card>
           <CardContent className="py-16 text-center">
@@ -259,6 +272,7 @@ export default function DashboardPage() {
           {/* Eggs Retrieved Chart */}
           <ChartCard
             title="Average Eggs Retrieved"
+            xLabel={GROUP_X_LABELS[groupBy] || groupBy}
             data={stats.groups.filter((g) => g.avgEggsRetrieved != null)}
             dataKey="avgEggsRetrieved"
             fill="var(--chart-1)"
@@ -267,6 +281,7 @@ export default function DashboardPage() {
           {/* Blastocysts Chart */}
           <ChartCard
             title="Average Total Blastocysts"
+            xLabel={GROUP_X_LABELS[groupBy] || groupBy}
             data={stats.groups.filter((g) => g.avgBlastsTotal != null)}
             dataKey="avgBlastsTotal"
             fill="var(--chart-2)"
@@ -275,6 +290,7 @@ export default function DashboardPage() {
           {/* Euploid Chart */}
           <ChartCard
             title="Average PGT-Normal Embryos"
+            xLabel={GROUP_X_LABELS[groupBy] || groupBy}
             data={stats.groups.filter((g) => g.avgPgtEuploid != null)}
             dataKey="avgPgtEuploid"
             fill="var(--chart-3)"
@@ -384,15 +400,96 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
   );
 }
 
+/* ---------- Funnel card ---------- */
+
+const FUNNEL_STEPS: {
+  key: keyof FunnelStats;
+  pctKey: keyof FunnelStats;
+  label: string;
+  desc: string;
+}[] = [
+  { key: 'avgRetrieved', pctKey: 'avgRetrieved', label: 'Retrieved', desc: 'Avg eggs retrieved' },
+  { key: 'avgMature', pctKey: 'pctMature', label: 'Mature', desc: '% of retrieved' },
+  { key: 'avgFertilized', pctKey: 'pctFertilized', label: 'Fertilized', desc: '% of mature' },
+  { key: 'avgDay3', pctKey: 'pctDay3', label: 'Day 3', desc: '% of fertilized' },
+  { key: 'avgBlastsDay5', pctKey: 'pctBlastDay5', label: 'Day 5 Blasts', desc: '% of fertilized' },
+  { key: 'avgBlastsTotal', pctKey: 'pctBlastTotal', label: 'Total Blasts', desc: '% of fertilized' },
+];
+
+const CONVERSION_RATES: {
+  key: keyof FunnelStats;
+  label: string;
+}[] = [
+  { key: 'pctMature', label: 'Mature / Retrieved' },
+  { key: 'pctFertilized', label: 'Fertilized / Mature' },
+  { key: 'pctFertToBlast', label: 'Blast / Fertilized' },
+  { key: 'pctMatureToBlast', label: 'Blast / Mature' },
+];
+
+function FunnelCard({ funnel, filtered }: { funnel: FunnelStats; filtered: boolean }) {
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center justify-between">
+          {filtered ? 'Cohort Averages' : 'Population Averages'}
+          <span className="text-xs font-normal text-muted-foreground">
+            {funnel.totalCycles} cycles with outcome data
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Average counts row */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-5">
+          {FUNNEL_STEPS.map((step) => {
+            const avg = funnel[step.key] as number | null;
+            if (avg == null) return null;
+            return (
+              <div key={step.key} className="text-center">
+                <p className="text-lg font-semibold text-foreground">{avg}</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">{step.label}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Conversion rates */}
+        <div className="border-t pt-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
+            Conversion Rates
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {CONVERSION_RATES.map((rate) => {
+              const val = funnel[rate.key] as number | null;
+              if (val == null) return null;
+              return (
+                <div key={rate.key} className="text-center">
+                  <p className="text-lg font-semibold text-foreground">{val}%</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">{rate.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground mt-4">
+          Percentages are computed from aggregate sums across all {filtered ? 'matching' : ''} cycles, not averages of averages.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 /* ---------- Chart card ---------- */
 
 function ChartCard({
   title,
+  xLabel,
   data,
   dataKey,
   fill,
 }: {
   title: string;
+  xLabel: string;
   data: AggregateGroup[];
   dataKey: string;
   fill: string;
@@ -410,14 +507,16 @@ function ChartCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11 }}
               stroke="var(--muted-foreground)"
-            />
+            >
+              <Label value={xLabel} position="insideBottom" offset={-18} style={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+            </XAxis>
             <YAxis
               tick={{ fontSize: 11 }}
               stroke="var(--muted-foreground)"
@@ -430,7 +529,6 @@ function ChartCard({
                 fontSize: '12px',
               }}
             />
-            <Legend wrapperStyle={{ fontSize: '11px' }} />
             <Bar
               dataKey={dataKey}
               fill={fill}

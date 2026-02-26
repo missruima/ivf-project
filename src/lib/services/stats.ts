@@ -1,10 +1,10 @@
 import { getDb } from '@/lib/db';
 import { MIN_GROUP_SIZE } from '@/lib/constants/disclaimers';
-import type { AggregateGroup, StatsResponse } from '@/types/stats';
+import type { AggregateGroup, FunnelStats, StatsResponse } from '@/types/stats';
 
-type GroupByColumn = 'age_bracket' | 'protocol_type' | 'amh_range';
+type GroupByColumn = 'age' | 'age_bracket' | 'protocol_type' | 'amh_range';
 
-const VALID_GROUP_BY: GroupByColumn[] = ['age_bracket', 'protocol_type', 'amh_range'];
+const VALID_GROUP_BY: GroupByColumn[] = ['age', 'age_bracket', 'protocol_type', 'amh_range'];
 
 /**
  * SQL expression that buckets exact ages into display brackets.
@@ -26,6 +26,11 @@ interface FilterParams {
   amhRange?: string;
 }
 
+function pct(numerator: number | null, denominator: number | null): number | null {
+  if (numerator == null || denominator == null || denominator === 0) return null;
+  return Math.round((numerator / denominator) * 1000) / 10; // one decimal
+}
+
 export function getAggregateStats(
   groupBy: string,
   filters: FilterParams = {}
@@ -39,9 +44,27 @@ export function getAggregateStats(
   const groupByCol = groupBy as GroupByColumn;
 
   // Determine the actual SQL expression for the group-by
-  const groupByExpr = groupByCol === 'age_bracket'
-    ? AGE_BRACKET_EXPR
-    : `p.${groupByCol === 'protocol_type' ? 'protocol_type' : 'amh_range'}`;
+  const groupByExprMap: Record<GroupByColumn, string> = {
+    age: 'CAST(p.age AS TEXT)',
+    age_bracket: AGE_BRACKET_EXPR,
+    protocol_type: 'p.protocol_type',
+    amh_range: 'p.amh_range',
+  };
+  const groupByExpr = groupByExprMap[groupByCol];
+
+  // Determine ORDER BY — numeric for age, custom for age_bracket, alpha for rest
+  const orderByMap: Record<GroupByColumn, string> = {
+    age: 'CAST(label AS INTEGER)',
+    age_bracket: `CASE label
+      WHEN 'Under 30' THEN 1 WHEN '30–34' THEN 2 WHEN '35–37' THEN 3
+      WHEN '38–40' THEN 4 WHEN '41–42' THEN 5 WHEN '43+' THEN 6 ELSE 7 END`,
+    protocol_type: 'label',
+    amh_range: `CASE label
+      WHEN '<0.5' THEN 1 WHEN '0.5-1.0' THEN 2 WHEN '1.0-1.5' THEN 3
+      WHEN '1.5-2.0' THEN 4 WHEN '2.0-3.0' THEN 5 WHEN '3.0-4.0' THEN 6
+      WHEN '4.0+' THEN 7 ELSE 8 END`,
+  };
+  const orderByExpr = orderByMap[groupByCol];
 
   // Build WHERE clause
   const conditions: string[] = ['p.is_active = 1'];
@@ -86,7 +109,7 @@ export function getAggregateStats(
     WHERE ${whereClause}
     GROUP BY label
     HAVING COUNT(DISTINCT p.id) >= ?
-    ORDER BY label
+    ORDER BY ${orderByExpr}
   `).all(...params, MIN_GROUP_SIZE) as Array<Record<string, unknown>>;
 
   const groups: AggregateGroup[] = rows.map((row) => ({
@@ -128,9 +151,53 @@ export function getAggregateStats(
     WHERE ${whereClause}
   `).get(...params) as { total: number };
 
+  // ── Funnel stats (population-wide or filtered) ──
+  const funnelRow = db.prepare(`
+    SELECT
+      COUNT(DISTINCT p.id) as total_cycles,
+      ROUND(AVG(o.eggs_retrieved), 1) as avg_retrieved,
+      ROUND(AVG(o.eggs_mature), 1) as avg_mature,
+      ROUND(AVG(o.eggs_fertilized), 1) as avg_fertilized,
+      ROUND(AVG(o.day3_embryos), 1) as avg_day3,
+      ROUND(AVG(o.blasts_day5), 1) as avg_day5,
+      ROUND(AVG(o.blasts_day6), 1) as avg_day6,
+      ROUND(AVG(o.blasts_day7), 1) as avg_day7,
+      ROUND(AVG(COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0)), 1) as avg_blasts_total,
+      ROUND(AVG(o.pgt_euploid), 1) as avg_euploid,
+      SUM(o.eggs_mature) as sum_mature,
+      SUM(o.eggs_retrieved) as sum_retrieved,
+      SUM(o.eggs_fertilized) as sum_fertilized,
+      SUM(o.day3_embryos) as sum_day3,
+      SUM(COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0)) as sum_blasts
+    FROM protocols p
+    JOIN outcomes o ON o.protocol_id = p.id
+    WHERE ${whereClause} AND o.eggs_retrieved IS NOT NULL
+  `).get(...params) as Record<string, number | null>;
+
+  const funnel: FunnelStats = {
+    totalCycles: (funnelRow.total_cycles as number) || 0,
+    avgRetrieved: funnelRow.avg_retrieved,
+    avgMature: funnelRow.avg_mature,
+    avgFertilized: funnelRow.avg_fertilized,
+    avgDay3: funnelRow.avg_day3,
+    avgBlastsDay5: funnelRow.avg_day5,
+    avgBlastsDay6: funnelRow.avg_day6,
+    avgBlastsDay7: funnelRow.avg_day7,
+    avgBlastsTotal: funnelRow.avg_blasts_total,
+    avgEuploid: funnelRow.avg_euploid,
+    pctMature: pct(funnelRow.sum_mature, funnelRow.sum_retrieved),
+    pctFertilized: pct(funnelRow.sum_fertilized, funnelRow.sum_mature),
+    pctDay3: pct(funnelRow.sum_day3, funnelRow.sum_fertilized),
+    pctBlastDay5: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
+    pctBlastTotal: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
+    pctFertToBlast: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
+    pctMatureToBlast: pct(funnelRow.sum_blasts, funnelRow.sum_mature),
+  };
+
   return {
     groupBy: groupByCol,
     groups,
+    funnel,
     totalRecords: totals.total,
     totalWithOutcomes: totals.with_outcomes,
     filteredRecords: filtered.total,

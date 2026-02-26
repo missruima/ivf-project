@@ -63,3 +63,35 @@ export const TRANSFER_OUTCOME_LABELS: Record<string, string> = {
   'ongoing': 'Ongoing Pregnancy',
   'not_yet': 'Not Yet Transferred',
 };
+
+export const CYCLE_TYPE_LABELS: Record<string, string> = {
+  'fresh_transfer': 'Fresh Transfer',
+  'freeze_all': 'Freeze All',
+  'fresh_to_frozen': 'Fresh → Frozen',
+  'cancelled': 'Cancelled',
+};
+
+export const FERTILIZATION_METHOD_LABELS: Record<string, string> = {
+  'standard': 'Standard (Conventional)',
+  'icsi': 'ICSI',
+  'imsi': 'IMSI',
+  'picsi': 'PICSI',
+  'macs': 'MACS',
+  'other': 'Other',
+};
+
+export const DIAGNOSIS_LABELS: Record<string, string> = {
+  'dor': 'Diminished Ovarian Reserve (DOR)',
+  'pcos': 'PCOS / Ovulation Disorders',
+  'endometriosis': 'Endometriosis',
+  'male_factor': 'Male Factor',
+  'tubal': 'Tubal Issues',
+  'unexplained': 'Unexplained',
+  'recurrent_loss': 'Recurrent Pregnancy Loss',
+  'pof': 'Premature Ovarian Failure',
+  'genetic_carrier': 'Genetic Disease Carrier',
+  'cancer_other': 'Cancer / Other Medical',
+  'ovulation_disorder': 'Ovulation Disorder (non-PCOS)',
+  'not_infertile': 'Not Infertile (social / elective)',
+  'unknown': "Don't Know",
+};

@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db';
 import { generatePassphrase, hashPassphrase, computePrefix, comparePassphrase } from './passphrase';
 import type { ProtocolSubmitInput } from '@/lib/validators/protocol';
 import type { OutcomeSubmitInput } from '@/lib/validators/outcome';
-import type { Protocol, Outcome, Medication, ProtocolWithOutcome } from '@/types/protocol';
+import type { Protocol, Outcome, Medication, ProtocolWithOutcome, Diagnosis } from '@/types/protocol';
 
 interface SubmitResult {
   protocolId: string;
@@ -21,32 +21,43 @@ export async function submitProtocol(data: ProtocolSubmitInput): Promise<SubmitR
   const prefix = computePrefix(passphrase);
 
   const insertProtocol = db.prepare(`
-    INSERT INTO protocols (id, passphrase_hash, passphrase_prefix, age, age_months, amh_range, afc_range, protocol_type, trigger_type, stim_days, country, state)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO protocols (
+      id, passphrase_hash, passphrase_prefix,
+      age, age_months, amh_range, amh_value, afc_range, afc_count,
+      protocol_type, trigger_type, stim_days,
+      country, state,
+      cycle_number, cycle_type, donor_sperm, donor_eggs,
+      fertilization_method, partner_age, peak_e2, max_follicles
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const insertMedication = db.prepare(`
-    INSERT INTO medications (id, protocol_id, name, dosage, category) VALUES (?, ?, ?, ?, ?)
-  `);
+  const insertMedication = db.prepare(
+    `INSERT INTO medications (id, protocol_id, name, dosage, category) VALUES (?, ?, ?, ?, ?)`
+  );
+
+  const insertDiagnosis = db.prepare(
+    `INSERT INTO diagnoses (id, protocol_id, diagnosis) VALUES (?, ?, ?)`
+  );
 
   const transaction = db.transaction(() => {
     insertProtocol.run(
-      protocolId,
-      passphraseHash,
-      prefix,
-      data.age,
-      data.ageMonths,
-      data.amhRange,
-      data.afcRange,
-      data.protocolType,
-      data.triggerType,
-      data.stimDays,
-      data.country,
-      data.state
+      protocolId, passphraseHash, prefix,
+      data.age, data.ageMonths, data.amhRange, data.amhValue, data.afcRange, data.afcCount,
+      data.protocolType, data.triggerType, data.stimDays,
+      data.country, data.state,
+      data.cycleNumber, data.cycleType,
+      data.donorSperm == null ? null : data.donorSperm ? 1 : 0,
+      data.donorEggs == null ? null : data.donorEggs ? 1 : 0,
+      data.fertilizationMethod, data.partnerAge, data.peakE2, data.maxFollicles
     );
 
     for (const med of data.medications) {
       insertMedication.run(uuid(), protocolId, med.name, med.dosage, med.category || 'stim');
+    }
+
+    for (const dx of data.diagnoses ?? []) {
+      insertDiagnosis.run(uuid(), protocolId, dx);
     }
   });
 
@@ -77,6 +88,10 @@ export async function lookupByPassphrase(passphrase: string): Promise<ProtocolWi
       const meds = db.prepare(`SELECT name, dosage, category FROM medications WHERE protocol_id = ?`).all(row.id as string) as Medication[];
       protocol.medications = meds;
 
+      // Fetch diagnoses
+      const dxRows = db.prepare(`SELECT diagnosis FROM diagnoses WHERE protocol_id = ?`).all(row.id as string) as Array<{ diagnosis: string }>;
+      protocol.diagnoses = dxRows.map(d => d.diagnosis as Diagnosis);
+
       // Fetch outcome
       const outcomeRow = db.prepare(`SELECT * FROM outcomes WHERE protocol_id = ?`).get(row.id as string) as Record<string, unknown> | undefined;
       const outcome = outcomeRow ? rowToOutcome(outcomeRow) : null;
@@ -100,37 +115,46 @@ export function upsertOutcome(protocolId: string, data: OutcomeSubmitInput): voi
     db.prepare(`
       UPDATE outcomes SET
         eggs_retrieved = ?, eggs_mature = ?, eggs_fertilized = ?,
+        eggs_frozen = ?, eggs_thawed = ?, day3_embryos = ?,
         blasts_day5 = ?, blasts_day6 = ?, blasts_day7 = ?,
-        pgt_tested = ?, pgt_euploid = ?, pgt_mosaic = ?, pgt_aneuploid = ?,
+        embryo_grades_day5 = ?, embryo_grades_day6 = ?, embryo_grades_day7 = ?,
+        pgt_tested = ?, pgt_euploid = ?, pgt_mosaic = ?, pgt_aneuploid = ?, pgt_inconclusive = ?,
         transfer_count = ?, transfer_outcome = ?,
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
       data.eggsRetrieved, data.eggsMature, data.eggsFertilized,
+      data.eggsFrozen, data.eggsThawed, data.day3Embryos,
       data.blastsDay5, data.blastsDay6, data.blastsDay7,
-      data.pgtTested, data.pgtEuploid, data.pgtMosaic, data.pgtAneuploid,
+      data.embryoGradesDay5, data.embryoGradesDay6, data.embryoGradesDay7,
+      data.pgtTested, data.pgtEuploid, data.pgtMosaic, data.pgtAneuploid, data.pgtInconclusive,
       data.transferCount, data.transferOutcome,
       existing.id
     );
   } else {
     db.prepare(`
-      INSERT INTO outcomes (id, protocol_id, eggs_retrieved, eggs_mature, eggs_fertilized,
+      INSERT INTO outcomes (id, protocol_id,
+        eggs_retrieved, eggs_mature, eggs_fertilized,
+        eggs_frozen, eggs_thawed, day3_embryos,
         blasts_day5, blasts_day6, blasts_day7,
-        pgt_tested, pgt_euploid, pgt_mosaic, pgt_aneuploid,
+        embryo_grades_day5, embryo_grades_day6, embryo_grades_day7,
+        pgt_tested, pgt_euploid, pgt_mosaic, pgt_aneuploid, pgt_inconclusive,
         transfer_count, transfer_outcome)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       uuid(), protocolId,
       data.eggsRetrieved, data.eggsMature, data.eggsFertilized,
+      data.eggsFrozen, data.eggsThawed, data.day3Embryos,
       data.blastsDay5, data.blastsDay6, data.blastsDay7,
-      data.pgtTested, data.pgtEuploid, data.pgtMosaic, data.pgtAneuploid,
+      data.embryoGradesDay5, data.embryoGradesDay6, data.embryoGradesDay7,
+      data.pgtTested, data.pgtEuploid, data.pgtMosaic, data.pgtAneuploid, data.pgtInconclusive,
       data.transferCount, data.transferOutcome
     );
   }
 }
 
 /**
- * Hard-delete a protocol and all related data (medications, outcomes).
+ * Hard-delete a protocol and all related data (medications, outcomes, diagnoses).
  * Uses prefix-accelerated bcrypt lookup, same as lookupByPassphrase.
  * Returns true if a record was found and deleted.
  */
@@ -145,7 +169,7 @@ export async function deleteByPassphrase(passphrase: string): Promise<boolean> {
   for (const row of candidates) {
     const matches = await comparePassphrase(passphrase, row.passphrase_hash);
     if (matches) {
-      // CASCADE deletes medications + outcomes automatically
+      // CASCADE deletes medications + outcomes + diagnoses automatically
       const deleteProtocol = db.prepare(`DELETE FROM protocols WHERE id = ?`);
       deleteProtocol.run(row.id);
       return true;
@@ -161,12 +185,23 @@ function rowToProtocol(row: Record<string, unknown>): Protocol {
     age: row.age as number,
     ageMonths: (row.age_months as number) ?? null,
     amhRange: (row.amh_range as Protocol['amhRange']) || null,
+    amhValue: (row.amh_value as number) ?? null,
     afcRange: (row.afc_range as Protocol['afcRange']) || null,
+    afcCount: (row.afc_count as number) ?? null,
     protocolType: row.protocol_type as Protocol['protocolType'],
     triggerType: (row.trigger_type as Protocol['triggerType']) || null,
     stimDays: (row.stim_days as number) || null,
     country: (row.country as string) || null,
     state: (row.state as string) || null,
+    cycleNumber: (row.cycle_number as number) ?? null,
+    cycleType: (row.cycle_type as Protocol['cycleType']) || null,
+    donorSperm: row.donor_sperm == null ? null : row.donor_sperm === 1,
+    donorEggs: row.donor_eggs == null ? null : row.donor_eggs === 1,
+    fertilizationMethod: (row.fertilization_method as Protocol['fertilizationMethod']) || null,
+    partnerAge: (row.partner_age as number) ?? null,
+    peakE2: (row.peak_e2 as number) ?? null,
+    maxFollicles: (row.max_follicles as number) ?? null,
+    diagnoses: [],
     medications: [],
     submittedAt: row.submitted_at as string,
     updatedAt: row.updated_at as string,
@@ -180,13 +215,20 @@ function rowToOutcome(row: Record<string, unknown>): Outcome {
     eggsRetrieved: row.eggs_retrieved as number | null,
     eggsMature: row.eggs_mature as number | null,
     eggsFertilized: row.eggs_fertilized as number | null,
+    eggsFrozen: row.eggs_frozen as number | null,
+    eggsThawed: row.eggs_thawed as number | null,
+    day3Embryos: row.day3_embryos as number | null,
     blastsDay5: row.blasts_day5 as number | null,
     blastsDay6: row.blasts_day6 as number | null,
     blastsDay7: row.blasts_day7 as number | null,
+    embryoGradesDay5: row.embryo_grades_day5 as string | null,
+    embryoGradesDay6: row.embryo_grades_day6 as string | null,
+    embryoGradesDay7: row.embryo_grades_day7 as string | null,
     pgtTested: row.pgt_tested as number | null,
     pgtEuploid: row.pgt_euploid as number | null,
     pgtMosaic: row.pgt_mosaic as number | null,
     pgtAneuploid: row.pgt_aneuploid as number | null,
+    pgtInconclusive: row.pgt_inconclusive as number | null,
     transferCount: row.transfer_count as number | null,
     transferOutcome: row.transfer_outcome as Outcome['transferOutcome'],
     reportedAt: row.reported_at as string,

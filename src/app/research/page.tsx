@@ -8,9 +8,9 @@ import { DISCLAIMERS } from '@/lib/constants/disclaimers';
 
 const SUGGESTED_QUESTIONS = [
   'What does recent research say about AMH levels and IVF outcomes?',
-  'How does age affect the number of blastocysts in IVF?',
-  'What are the differences between antagonist and long lupron protocols?',
-  'What does the research say about dual trigger vs HCG trigger?',
+  'How does age affect the number of eggs retrieved in IVF?',
+  'What are the average outcomes for women aged 35-37?',
+  'Which protocol type has the best blast rate?',
 ];
 
 export default function ResearchPage() {
@@ -23,7 +23,7 @@ export default function ResearchPage() {
       <div className="text-center mb-4">
         <h1 className="text-2xl font-semibold">Research Chat</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Ask questions about IVF — answers are grounded in published research
+          Ask questions about IVF — answers combine published research and community data
         </p>
       </div>
 
@@ -68,7 +68,7 @@ function EmptyState({ onSelect }: { onSelect: (q: string) => void }) {
         Ask anything about IVF research
       </p>
       <p className="text-xs text-muted-foreground mb-6">
-        Answers are based on published papers from PubMed, with citations you can verify
+        Answers combine published PubMed papers with anonymized data from our community
       </p>
       <div className="space-y-2">
         {SUGGESTED_QUESTIONS.map((q) => (
