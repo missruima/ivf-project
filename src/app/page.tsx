@@ -42,7 +42,7 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg">
-            <Link href="/research">Explore IVF Explorer</Link>
+            <Link href="/research">Ask IVF Explorer</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href="/share">Share Your Protocol</Link>
