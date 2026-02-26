@@ -1,4 +1,18 @@
+import type { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export const metadata: Metadata = {
+  title: 'Terms of Use',
+  description:
+    'Terms of use for IVF Project — an informational tool only, not medical advice.',
+  openGraph: {
+    title: 'Terms of Use | IVF Project',
+    description: 'Terms of use for IVF Project.',
+  },
+  alternates: {
+    canonical: '/terms',
+  },
+};
 
 export default function TermsPage() {
   return (

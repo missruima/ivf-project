@@ -26,9 +26,10 @@ interface FilterParams {
   amhRange?: string;
 }
 
-function pct(numerator: number | null, denominator: number | null): number | null {
+function pct(numerator: number | null, denominator: number | null, cap?: number): number | null {
   if (numerator == null || denominator == null || denominator === 0) return null;
-  return Math.round((numerator / denominator) * 1000) / 10; // one decimal
+  const value = Math.round((numerator / denominator) * 1000) / 10; // one decimal
+  return cap != null ? Math.min(value, cap) : value;
 }
 
 export function getAggregateStats(
@@ -164,11 +165,15 @@ export function getAggregateStats(
       ROUND(AVG(o.blasts_day7), 1) as avg_day7,
       ROUND(AVG(COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0)), 1) as avg_blasts_total,
       ROUND(AVG(o.pgt_euploid), 1) as avg_euploid,
-      SUM(o.eggs_mature) as sum_mature,
-      SUM(o.eggs_retrieved) as sum_retrieved,
-      SUM(o.eggs_fertilized) as sum_fertilized,
-      SUM(o.day3_embryos) as sum_day3,
-      SUM(COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0)) as sum_blasts
+      -- Paired sums: only include a cycle when both values exist AND numerator <= denominator
+      SUM(CASE WHEN o.eggs_mature IS NOT NULL AND o.eggs_retrieved IS NOT NULL AND o.eggs_mature <= o.eggs_retrieved THEN o.eggs_mature END) as sum_mature_valid,
+      SUM(CASE WHEN o.eggs_mature IS NOT NULL AND o.eggs_retrieved IS NOT NULL AND o.eggs_mature <= o.eggs_retrieved THEN o.eggs_retrieved END) as sum_retrieved_valid,
+      SUM(CASE WHEN o.eggs_fertilized IS NOT NULL AND o.eggs_mature IS NOT NULL AND o.eggs_fertilized <= o.eggs_mature THEN o.eggs_fertilized END) as sum_fert_valid,
+      SUM(CASE WHEN o.eggs_fertilized IS NOT NULL AND o.eggs_mature IS NOT NULL AND o.eggs_fertilized <= o.eggs_mature THEN o.eggs_mature END) as sum_mature_for_fert_valid,
+      SUM(CASE WHEN o.eggs_fertilized IS NOT NULL AND (COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0)) <= o.eggs_fertilized THEN COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0) END) as sum_blasts_for_fert_valid,
+      SUM(CASE WHEN o.eggs_fertilized IS NOT NULL AND (COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0)) <= o.eggs_fertilized THEN o.eggs_fertilized END) as sum_fert_for_blast_valid,
+      SUM(CASE WHEN o.eggs_mature IS NOT NULL AND (COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0)) <= o.eggs_mature THEN COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0) END) as sum_blasts_for_mature_valid,
+      SUM(CASE WHEN o.eggs_mature IS NOT NULL AND (COALESCE(o.blasts_day5,0)+COALESCE(o.blasts_day6,0)+COALESCE(o.blasts_day7,0)) <= o.eggs_mature THEN o.eggs_mature END) as sum_mature_for_blast_valid
     FROM protocols p
     JOIN outcomes o ON o.protocol_id = p.id
     WHERE ${whereClause} AND o.eggs_retrieved IS NOT NULL
@@ -185,13 +190,13 @@ export function getAggregateStats(
     avgBlastsDay7: funnelRow.avg_day7,
     avgBlastsTotal: funnelRow.avg_blasts_total,
     avgEuploid: funnelRow.avg_euploid,
-    pctMature: pct(funnelRow.sum_mature, funnelRow.sum_retrieved),
-    pctFertilized: pct(funnelRow.sum_fertilized, funnelRow.sum_mature),
-    pctDay3: pct(funnelRow.sum_day3, funnelRow.sum_fertilized),
-    pctBlastDay5: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
-    pctBlastTotal: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
-    pctFertToBlast: pct(funnelRow.sum_blasts, funnelRow.sum_fertilized),
-    pctMatureToBlast: pct(funnelRow.sum_blasts, funnelRow.sum_mature),
+    pctMature: pct(funnelRow.sum_mature_valid, funnelRow.sum_retrieved_valid),
+    pctFertilized: pct(funnelRow.sum_fert_valid, funnelRow.sum_mature_for_fert_valid),
+    pctDay3: null, // not enough clean data for day3 ratios
+    pctBlastDay5: pct(funnelRow.sum_blasts_for_fert_valid, funnelRow.sum_fert_for_blast_valid),
+    pctBlastTotal: pct(funnelRow.sum_blasts_for_fert_valid, funnelRow.sum_fert_for_blast_valid),
+    pctFertToBlast: pct(funnelRow.sum_blasts_for_fert_valid, funnelRow.sum_fert_for_blast_valid),
+    pctMatureToBlast: pct(funnelRow.sum_blasts_for_mature_valid, funnelRow.sum_mature_for_blast_valid),
   };
 
   return {

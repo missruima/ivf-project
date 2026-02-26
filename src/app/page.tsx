@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 const features = [
   {
     href: '/research',
-    title: 'Research Chat',
+    title: 'IVF Explorer',
     description:
-      'Ask questions about IVF and get answers grounded in the latest published research, with paper citations.',
+      'Ask questions about IVF and get answers from published research and community data, with paper citations.',
     icon: '📚',
   },
   {
@@ -42,7 +42,7 @@ export default function Home() {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Button asChild size="lg">
-            <Link href="/research">Start Exploring Research</Link>
+            <Link href="/research">Explore IVF Explorer</Link>
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href="/share">Share Your Protocol</Link>

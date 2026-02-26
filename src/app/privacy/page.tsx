@@ -1,4 +1,19 @@
+import type { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export const metadata: Metadata = {
+  title: 'Privacy & Data Practices',
+  description:
+    'How IVF Project protects your privacy — no accounts, no tracking, no cookies, fully anonymized data with k-anonymity protections.',
+  openGraph: {
+    title: 'Privacy & Data Practices | IVF Project',
+    description:
+      'How IVF Project protects your privacy — no accounts, no tracking, fully anonymized data.',
+  },
+  alternates: {
+    canonical: '/privacy',
+  },
+};
 
 export default function PrivacyPage() {
   return (
@@ -47,7 +62,7 @@ export default function PrivacyPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              The research chat and protocol submission features are powered by
+              The IVF Explorer and protocol submission features are powered by
               Claude, Anthropic&apos;s AI assistant. Your chat messages are sent
               to Anthropic&apos;s API for processing. Anthropic&apos;s standard
               API data handling policies apply.

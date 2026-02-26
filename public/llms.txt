@@ -1,0 +1,55 @@
+# IVF Project
+> A free, open-source, privacy-first tool for understanding IVF (in vitro fertilization).
+
+## About
+IVF Project (https://ivfproject.org) is a non-profit, community-driven tool that helps people understand IVF research and outcomes. It combines published PubMed research with anonymized, self-reported community data from 400+ IVF cycles. The project is fully open source, has no ads, no tracking, no cookies, and requires no accounts.
+
+## Features
+
+### IVF Explorer (/research)
+An AI-powered research assistant that answers IVF questions by combining:
+- Published research from PubMed (the largest biomedical research database)
+- Anonymized community-reported data from IVF cycles shared by users
+All claims are cited with PubMed IDs (PMIDs). Responses include disclaimers that this is not medical advice.
+
+### Community Data Dashboard (/dashboard)
+Interactive charts and statistics showing aggregate IVF outcomes broken down by:
+- Age bracket
+- Protocol type (Antagonist, Long Lupron, Short Lupron, Mini IVF, Natural IVF, etc.)
+- AMH range
+Data includes: eggs retrieved, mature eggs, fertilization rates, blastocyst rates, PGT-normal counts, and transfer outcomes. All data is anonymized with k-anonymity (minimum group size of 5).
+
+### Protocol Sharing (/share)
+Users can anonymously share their IVF protocol through a conversational chat interface. An AI extracts structured data (age, AMH, protocol type, medications, supplements, etc.) from natural language descriptions. No forms, no accounts — just describe your cycle in your own words. Users receive a passphrase to return and update their record later.
+
+### Outcome Updates (/update)
+Users return with their passphrase to add outcomes (eggs retrieved, mature, fertilized, blasts, PGT results, transfer outcome) to their previously shared protocol.
+
+## Data & Privacy
+- No accounts, emails, or personal identifiers collected
+- No cookies, no analytics, no tracking
+- Data is coarsened (AMH/AFC stored as ranges, ages grouped into brackets)
+- k-anonymity enforced: groups with fewer than 5 people are never shown
+- IP addresses used only transiently for rate limiting, never stored
+- Users can delete their data at any time using their passphrase
+- Full privacy policy: https://ivfproject.org/privacy
+
+## Technology
+- Built with Next.js and TypeScript
+- Research powered by PubMed E-utilities API (free, public)
+- Chat powered by Claude (Anthropic)
+- Data stored in SQLite with WAL mode
+- Hosted on a single VPS — no cloud dependencies
+
+## Important Disclaimers
+- This is NOT medical advice. Always consult a qualified fertility specialist.
+- Community data is self-reported and may not be representative.
+- AI-generated responses may contain errors.
+- The project is not affiliated with any clinic, pharmacy, or company.
+
+## Links
+- Website: https://ivfproject.org
+- About: https://ivfproject.org/about
+- Privacy: https://ivfproject.org/privacy
+- Terms: https://ivfproject.org/terms
+- Support: https://ivfproject.org/support

@@ -1,4 +1,19 @@
+import type { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export const metadata: Metadata = {
+  title: 'About',
+  description:
+    'About IVF Project — a free, open-source, community-driven IVF research and data tool. No ads, no tracking, no accounts.',
+  openGraph: {
+    title: 'About | IVF Project',
+    description:
+      'About IVF Project — a free, open-source, community-driven IVF research and data tool.',
+  },
+  alternates: {
+    canonical: '/about',
+  },
+};
 
 export default function AboutPage() {
   return (
@@ -51,10 +66,10 @@ export default function AboutPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              <strong>Research Chat</strong> connects to PubMed — the largest
-              database of biomedical research — to find relevant published
-              studies, then uses AI to explain the findings in plain language
-              with citations.
+              <strong>IVF Explorer</strong> connects to PubMed — the largest
+              database of biomedical research — and combines published studies
+              with anonymized community data to answer your questions in plain
+              language with citations.
             </p>
             <p>
               <strong>Protocol Sharing</strong> lets you describe your IVF

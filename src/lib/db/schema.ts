@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS protocols (
@@ -106,6 +106,22 @@ CREATE INDEX IF NOT EXISTS idx_outcomes_protocol_id ON outcomes(protocol_id);
 CREATE INDEX IF NOT EXISTS idx_diagnoses_protocol_id ON diagnoses(protocol_id);
 CREATE INDEX IF NOT EXISTS idx_diagnoses_diagnosis ON diagnoses(diagnosis);
 
+CREATE TABLE IF NOT EXISTS response_cache (
+    id                  TEXT PRIMARY KEY,
+    question_hash       TEXT NOT NULL,
+    question_text       TEXT NOT NULL,
+    question_normalized TEXT NOT NULL,
+    keywords            TEXT NOT NULL,
+    response_text       TEXT NOT NULL,
+    citations_json      TEXT,
+    source              TEXT NOT NULL DEFAULT 'live' CHECK(source IN ('live', 'faq')),
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cache_hash ON response_cache(question_hash);
+CREATE INDEX IF NOT EXISTS idx_cache_expires ON response_cache(expires_at);
+
 CREATE TABLE IF NOT EXISTS schema_version (
     version     INTEGER PRIMARY KEY,
     applied_at  TEXT NOT NULL DEFAULT (datetime('now'))
@@ -153,5 +169,21 @@ export const MIGRATIONS: Record<number, string> = {
     `ALTER TABLE outcomes ADD COLUMN embryo_grades_day6 TEXT;`,
     `ALTER TABLE outcomes ADD COLUMN embryo_grades_day7 TEXT;`,
     `ALTER TABLE outcomes ADD COLUMN pgt_inconclusive INTEGER CHECK(pgt_inconclusive IS NULL OR pgt_inconclusive BETWEEN 0 AND 40);`,
+  ].join('\n'),
+  5: [
+    `CREATE TABLE IF NOT EXISTS response_cache (
+      id                  TEXT PRIMARY KEY,
+      question_hash       TEXT NOT NULL,
+      question_text       TEXT NOT NULL,
+      question_normalized TEXT NOT NULL,
+      keywords            TEXT NOT NULL,
+      response_text       TEXT NOT NULL,
+      citations_json      TEXT,
+      source              TEXT NOT NULL DEFAULT 'live' CHECK(source IN ('live', 'faq')),
+      created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at          TEXT NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS idx_cache_hash ON response_cache(question_hash);`,
+    `CREATE INDEX IF NOT EXISTS idx_cache_expires ON response_cache(expires_at);`,
   ].join('\n'),
 };

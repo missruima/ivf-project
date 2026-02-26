@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/research', label: 'Research Chat' },
+  { href: '/research', label: 'IVF Explorer' },
   { href: '/share', label: 'Share Protocol' },
   { href: '/dashboard', label: 'Community Data' },
   { href: '/update', label: 'Update Outcomes' },

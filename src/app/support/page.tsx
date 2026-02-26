@@ -1,5 +1,20 @@
+import type { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Support Us',
+  description:
+    'Help keep IVF Project free and running — see exactly what it costs and how to support the project.',
+  openGraph: {
+    title: 'Support Us | IVF Project',
+    description:
+      'Help keep IVF Project free and running — support the project.',
+  },
+  alternates: {
+    canonical: '/support',
+  },
+};
 
 const MONTHLY_COSTS = [
   { item: 'Server hosting', cost: '$12', note: 'VPS with persistent storage for the database' },
