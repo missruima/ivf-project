@@ -32,6 +32,7 @@ export default function UpdateClient() {
 
   const [extractedOutcome, setExtractedOutcome] = useState<ExtractedOutcomeData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -164,6 +165,7 @@ export default function UpdateClient() {
   const handleSubmitOutcome = async () => {
     if (!extractedOutcome || !record) return;
     setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
       const res = await fetch('/api/outcome/update', {
@@ -182,8 +184,8 @@ export default function UpdateClient() {
       }
 
       setPhase('done');
-    } catch {
-      // Show error in chat
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -468,6 +470,12 @@ export default function UpdateClient() {
         {error && (
           <div className="mt-2 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
             {error}
+          </div>
+        )}
+
+        {submitError && (
+          <div className="mt-2 text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+            {submitError}
           </div>
         )}
 

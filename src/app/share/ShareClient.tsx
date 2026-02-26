@@ -168,7 +168,7 @@ export default function ShareClient() {
       setIsReturningUser(true);
 
       // Pre-populate extracted data from previous protocol
-      const nextCycleNum = (mostRecent.cycleNumber ?? data.protocols.length) + 1;
+      const nextCycleNum = Math.max(mostRecent.cycleNumber ?? 0, data.protocols.length) + 1;
       setExtractedData(protocolToExtracted(mostRecent, nextCycleNum));
 
       setPhase('chat');
@@ -258,14 +258,14 @@ export default function ShareClient() {
   const handleChatSend = useCallback(
     (content: string) => {
       const trimmed = content.trim().toLowerCase();
-      if ((trimmed === 'submit' || trimmed === 'confirm') && canSubmit) {
+      if ((trimmed === 'submit' || trimmed === 'confirm') && canSubmit && !isSubmitting) {
         handleSubmit();
         return;
       }
       sendMessage(content);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canSubmit, sendMessage]
+    [canSubmit, isSubmitting, sendMessage]
   );
 
   // ─── Phase: Welcome ────────────────────────────────────────

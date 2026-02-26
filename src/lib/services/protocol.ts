@@ -78,14 +78,6 @@ export function submitProtocolForReturningUser(
   const db = getDb();
   const protocolId = uuid();
 
-  // Auto-calculate cycle number: max of existing cycles + 1
-  const maxCycleRow = db.prepare(`
-    SELECT MAX(cycle_number) as max_cycle FROM protocols
-    WHERE passphrase_hash = ? AND is_active = 1
-  `).get(passphraseHash) as { max_cycle: number | null } | undefined;
-
-  const nextCycleNumber = data.cycleNumber ?? ((maxCycleRow?.max_cycle ?? 0) + 1);
-
   const insertProtocol = db.prepare(`
     INSERT INTO protocols (
       id, passphrase_hash, passphrase_prefix,
@@ -107,6 +99,14 @@ export function submitProtocolForReturningUser(
   );
 
   const transaction = db.transaction(() => {
+    // Calculate cycle number inside the transaction to avoid race conditions
+    const maxCycleRow = db.prepare(`
+      SELECT MAX(cycle_number) as max_cycle FROM protocols
+      WHERE passphrase_hash = ? AND is_active = 1
+    `).get(passphraseHash) as { max_cycle: number | null } | undefined;
+
+    const nextCycleNumber = data.cycleNumber ?? ((maxCycleRow?.max_cycle ?? 0) + 1);
+
     insertProtocol.run(
       protocolId, passphraseHash, passphrasePrefix,
       data.age, data.ageMonths, data.amhRange, data.amhValue, data.afcRange, data.afcCount,
