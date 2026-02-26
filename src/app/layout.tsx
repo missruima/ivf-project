@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { DisclaimerBanner } from '@/components/layout/DisclaimerBanner';
+import { AcknowledgmentGate } from '@/components/layout/AcknowledgmentGate';
 import './globals.css';
 
 const geistSans = Geist({
@@ -31,10 +32,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
-        <DisclaimerBanner />
-        <Header />
-        <main className="flex-1 min-h-0">{children}</main>
-        <Footer />
+        <AcknowledgmentGate>
+          <DisclaimerBanner />
+          <Header />
+          <main className="flex-1 min-h-0">{children}</main>
+          <Footer />
+        </AcknowledgmentGate>
       </body>
     </html>
   );
