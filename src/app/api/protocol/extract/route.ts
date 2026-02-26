@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { EXTRACTION_SYSTEM_PROMPT } from '@/lib/prompts/extraction-system';
+import { buildReturningUserPrompt } from '@/lib/prompts/extraction-returning';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 import { checkTopicRelevance } from '@/lib/topic-guard';
 
@@ -14,7 +15,10 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { messages: { role: 'user' | 'assistant'; content: string }[] };
+  let body: {
+    messages: { role: 'user' | 'assistant'; content: string }[];
+    previousProtocol?: Record<string, unknown>;
+  };
   try {
     body = await request.json();
   } catch {
@@ -31,6 +35,11 @@ export async function POST(request: Request) {
     return Response.json({ error: topicCheck.reason }, { status: 422 });
   }
 
+  // Use returning-user prompt if previous protocol is provided
+  const systemPrompt = body.previousProtocol
+    ? buildReturningUserPrompt(body.previousProtocol)
+    : EXTRACTION_SYSTEM_PROMPT;
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -38,7 +47,7 @@ export async function POST(request: Request) {
         const anthropicStream = anthropic.messages.stream({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1000,
-          system: EXTRACTION_SYSTEM_PROMPT,
+          system: systemPrompt,
           messages: body.messages.map((m) => ({
             role: m.role,
             content: m.content,

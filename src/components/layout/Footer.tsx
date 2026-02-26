@@ -12,6 +12,12 @@ export function Footer() {
 
           <nav className="flex items-center gap-4 text-sm">
             <Link
+              href="/faq"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              FAQ
+            </Link>
+            <Link
               href="/terms"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -29,9 +35,15 @@ export function Footer() {
             >
               About
             </Link>
+            <a
+              href="mailto:feedback@ivfproject.org"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Feedback
+            </a>
             <Link
               href="/support"
-              className="text-muted-foreground hover:text-primary transition-colors"
+              className="text-muted-foreground hover:text-primary font-medium transition-colors"
             >
               Support Us
             </Link>

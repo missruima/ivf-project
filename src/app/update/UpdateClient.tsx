@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { ChatInput } from '@/components/chat/ChatInput';
-import { ProtocolSummaryCard } from '@/components/protocol/ProtocolSummaryCard';
 import { Disclaimer } from '@/components/shared/Disclaimer';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -14,24 +13,71 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { DISCLAIMERS } from '@/lib/constants/disclaimers';
 import { PROTOCOL_TYPE_LABELS, TRIGGER_TYPE_LABELS } from '@/lib/constants/ranges';
 import type { ProtocolWithOutcome, ExtractedOutcomeData } from '@/types/protocol';
 
-type Phase = 'lookup' | 'review' | 'update' | 'done' | 'deleted';
+type Phase = 'lookup' | 'select' | 'review' | 'update' | 'done' | 'deleted';
 
 export default function UpdateClient() {
   const [phase, setPhase] = useState<Phase>('lookup');
   const [passphrase, setPassphrase] = useState('');
   const [isLooking, setIsLooking] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+
+  // Multi-cycle state
+  const [allProtocols, setAllProtocols] = useState<ProtocolWithOutcome[]>([]);
   const [record, setRecord] = useState<ProtocolWithOutcome | null>(null);
+
   const [extractedOutcome, setExtractedOutcome] = useState<ExtractedOutcomeData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const handleDelete = async () => {
+  const handleDeleteCycle = async () => {
+    if (!passphrase.trim() || !record) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    try {
+      const res = await fetch('/api/protocol/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passphrase: passphrase.trim(),
+          protocolId: record.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Delete failed');
+      }
+
+      if (!data.deleted) {
+        setDeleteError('Could not delete. Please try again.');
+        return;
+      }
+
+      // If there are other cycles, go back to selection
+      const remaining = allProtocols.filter(p => p.id !== record.id);
+      if (remaining.length > 0) {
+        setAllProtocols(remaining);
+        setRecord(null);
+        setPhase('select');
+      } else {
+        setPhase('deleted');
+      }
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
     if (!passphrase.trim()) return;
     setIsDeleting(true);
     setDeleteError(null);
@@ -68,7 +114,7 @@ export default function UpdateClient() {
     setLookupError(null);
 
     try {
-      const res = await fetch('/api/protocol/lookup', {
+      const res = await fetch('/api/protocol/lookup-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passphrase: passphrase.trim() }),
@@ -80,13 +126,22 @@ export default function UpdateClient() {
         throw new Error(data.error || 'Lookup failed');
       }
 
-      if (!data.found) {
+      if (!data.found || data.protocols.length === 0) {
         setLookupError('No matching record found. Please check your passphrase and try again.');
         return;
       }
 
-      setRecord(data.protocol);
-      setPhase('review');
+      const protocols = data.protocols as ProtocolWithOutcome[];
+      setAllProtocols(protocols);
+
+      if (protocols.length === 1) {
+        // Single protocol — go directly to review
+        setRecord(protocols[0]);
+        setPhase('review');
+      } else {
+        // Multiple protocols — show selection
+        setPhase('select');
+      }
     } catch (err) {
       setLookupError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -116,6 +171,7 @@ export default function UpdateClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           passphrase: passphrase.trim(),
+          protocolId: record.id,
           outcome: extractedOutcome,
         }),
       });
@@ -178,16 +234,121 @@ export default function UpdateClient() {
     );
   }
 
-  // Phase: Review existing record
-  if (phase === 'review' && record) {
+  // Phase: Select (multi-cycle)
+  if (phase === 'select') {
     return (
       <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold">Your Protocol</h1>
+          <h1 className="text-2xl font-semibold">Your Cycles</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Here is the protocol you shared
+            You have {allProtocols.length} cycle{allProtocols.length > 1 ? 's' : ''} on record — select one to update
           </p>
         </div>
+
+        <div className="space-y-3">
+          {allProtocols.map((protocol) => {
+            const date = protocol.submittedAt
+              ? new Date(protocol.submittedAt + 'Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+              : '';
+            const protocolLabel = protocol.protocolType ? (PROTOCOL_TYPE_LABELS[protocol.protocolType] || protocol.protocolType) : 'Unknown protocol';
+
+            return (
+              <Card
+                key={protocol.id}
+                className="cursor-pointer hover:border-primary/40 transition-colors"
+                onClick={() => { setRecord(protocol); setPhase('review'); }}
+              >
+                <CardContent className="pt-4 pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {protocol.cycleNumber ? `Cycle ${protocol.cycleNumber}` : 'Cycle'} — {protocolLabel}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Age {protocol.age} • {date}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {protocol.outcome ? (
+                        <Badge variant="secondary" className="text-[10px]">Has outcomes</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">No outcomes</Badge>
+                      )}
+                      <span className="text-muted-foreground text-xs">→</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <div className="mt-6 text-center">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" className="text-muted-foreground hover:text-destructive text-xs">
+                Delete all my data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete all your data?</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <span className="block">
+                    This will permanently remove all {allProtocols.length} cycle{allProtocols.length > 1 ? 's' : ''}, medications, and outcomes. This cannot be undone.
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Your passphrase will stop working after deletion.
+                  </span>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              {deleteError && (
+                <p className="text-xs text-destructive">{deleteError}</p>
+              )}
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep my data</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAll}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, delete everything'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    );
+  }
+
+  // Phase: Review existing record
+  if (phase === 'review' && record) {
+    const hasMultipleCycles = allProtocols.length > 1;
+
+    return (
+      <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-semibold">
+            {hasMultipleCycles
+              ? `Cycle ${record.cycleNumber ?? ''}`.trim()
+              : 'Your Protocol'}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {hasMultipleCycles
+              ? 'Review this cycle or update its outcomes'
+              : 'Here is the protocol you shared'}
+          </p>
+        </div>
+
+        {hasMultipleCycles && (
+          <button
+            onClick={() => { setRecord(null); setPhase('select'); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors mb-4 inline-block"
+          >
+            ← Back to all cycles
+          </button>
+        )}
 
         <Card className="mb-6">
           <CardHeader>
@@ -195,10 +356,10 @@ export default function UpdateClient() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Age" value={record.ageMonths != null ? `${record.age} yr ${record.ageMonths} mo` : String(record.age)} />
-            {record.amhRange && <Row label="AMH" value={`${record.amhRange} ng/mL`} />}
-            {record.afcRange && <Row label="AFC" value={record.afcRange} />}
+            {record.amhRange && <Row label="AMH" value={record.amhValue ? `${record.amhValue} ng/mL` : `${record.amhRange} ng/mL`} />}
+            {record.afcRange && <Row label="AFC" value={record.afcCount ? String(record.afcCount) : record.afcRange} />}
             {record.country && <Row label="Location" value={record.state ? `${record.state}, ${record.country}` : record.country} />}
-            <Row label="Protocol" value={PROTOCOL_TYPE_LABELS[record.protocolType] || record.protocolType} />
+            {record.protocolType && <Row label="Protocol" value={PROTOCOL_TYPE_LABELS[record.protocolType] || record.protocolType} />}
             {record.triggerType && <Row label="Trigger" value={TRIGGER_TYPE_LABELS[record.triggerType] || record.triggerType} />}
             {record.stimDays && <Row label="Stim Days" value={String(record.stimDays)} />}
             {record.medications.filter(m => m.category !== 'supplement').length > 0 && (
@@ -233,20 +394,25 @@ export default function UpdateClient() {
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive text-xs">
-                Delete my data
+                {hasMultipleCycles ? 'Delete this cycle' : 'Delete my data'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete all your data?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {hasMultipleCycles ? 'Delete this cycle?' : 'Delete all your data?'}
+                </AlertDialogTitle>
                 <AlertDialogDescription className="space-y-2">
                   <span className="block">
-                    This will permanently remove your protocol, medications, and any outcomes
-                    you have shared. This cannot be undone.
+                    {hasMultipleCycles
+                      ? 'This will permanently remove this cycle\'s protocol, medications, and outcomes. Your other cycles will not be affected.'
+                      : 'This will permanently remove your protocol, medications, and any outcomes you have shared. This cannot be undone.'}
                   </span>
-                  <span className="block text-xs text-muted-foreground">
-                    Your passphrase will stop working after deletion.
-                  </span>
+                  {!hasMultipleCycles && (
+                    <span className="block text-xs text-muted-foreground">
+                      Your passphrase will stop working after deletion.
+                    </span>
+                  )}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               {deleteError && (
@@ -255,11 +421,11 @@ export default function UpdateClient() {
               <AlertDialogFooter>
                 <AlertDialogCancel>Keep my data</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleDelete}
+                  onClick={handleDeleteCycle}
                   disabled={isDeleting}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  {isDeleting ? 'Deleting...' : 'Yes, delete everything'}
+                  {isDeleting ? 'Deleting...' : hasMultipleCycles ? 'Yes, delete this cycle' : 'Yes, delete everything'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

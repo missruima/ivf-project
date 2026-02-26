@@ -1,5 +1,7 @@
 import { outcomeSubmitSchema } from '@/lib/validators/outcome';
 import { lookupByPassphrase, upsertOutcome } from '@/lib/services/protocol';
+import { getDb } from '@/lib/db';
+import { comparePassphrase } from '@/lib/services/passphrase';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
@@ -11,7 +13,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { passphrase: string; outcome: unknown };
+  let body: { passphrase: string; outcome: unknown; protocolId?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,15 +34,36 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Verify passphrase ownership
-    const record = await lookupByPassphrase(body.passphrase.trim().toLowerCase());
-    if (!record) {
-      return Response.json({ error: 'No matching record found.' }, { status: 404 });
+    const passphrase = body.passphrase.trim().toLowerCase();
+
+    if (body.protocolId) {
+      // Multi-cycle mode: update a specific protocol's outcome
+      const db = getDb();
+      const row = db.prepare(
+        `SELECT passphrase_hash FROM protocols WHERE id = ? AND is_active = 1`
+      ).get(body.protocolId) as { passphrase_hash: string } | undefined;
+
+      if (!row) {
+        return Response.json({ error: 'No matching record found.' }, { status: 404 });
+      }
+
+      const matches = await comparePassphrase(passphrase, row.passphrase_hash);
+      if (!matches) {
+        return Response.json({ error: 'No matching record found.' }, { status: 404 });
+      }
+
+      upsertOutcome(body.protocolId, parsed.data);
+      return Response.json({ updated: true });
+    } else {
+      // Legacy mode: find first matching protocol
+      const record = await lookupByPassphrase(passphrase);
+      if (!record) {
+        return Response.json({ error: 'No matching record found.' }, { status: 404 });
+      }
+
+      upsertOutcome(record.id, parsed.data);
+      return Response.json({ updated: true });
     }
-
-    upsertOutcome(record.id, parsed.data);
-
-    return Response.json({ updated: true });
   } catch (error) {
     console.error('Outcome update error:', error);
     return Response.json(

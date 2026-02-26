@@ -25,24 +25,41 @@ export function Header() {
             <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
               IVF Project
             </span>
+            <span className="text-[10px] font-medium bg-primary/15 text-primary px-1.5 py-0.5 rounded-full leading-none">
+              Alpha
+            </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <div className="hidden md:flex items-center gap-1">
+            <nav className="flex items-center gap-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    pathname === item.href
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <span className="mx-1 h-4 w-px bg-border/50" />
+            <Link
+              href="/support"
+              className={cn(
+                'px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                pathname === '/support'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-primary/80 hover:text-primary hover:bg-primary/5'
+              )}
+            >
+              Support Us
+            </Link>
+          </div>
 
           {/* Mobile nav toggle */}
           <MobileNav pathname={pathname} />
@@ -86,6 +103,25 @@ function MobileNav({ pathname }: { pathname: string }) {
               {item.label}
             </Link>
           ))}
+          <div className="border-t border-border/50 mt-1 pt-1">
+            <Link
+              href="/support"
+              className={cn(
+                'block px-3 py-2 rounded-md text-sm transition-colors',
+                pathname === '/support'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-primary/80 hover:text-primary hover:bg-primary/5'
+              )}
+            >
+              Support Us
+            </Link>
+            <a
+              href="mailto:feedback@ivfproject.org"
+              className="block px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Feedback
+            </a>
+          </div>
         </div>
       </details>
     </div>

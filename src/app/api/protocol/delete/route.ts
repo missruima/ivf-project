@@ -1,4 +1,4 @@
-import { deleteByPassphrase } from '@/lib/services/protocol';
+import { deleteByPassphrase, deleteProtocolById } from '@/lib/services/protocol';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { passphrase: string };
+  let body: { passphrase: string; protocolId?: string };
   try {
     body = await request.json();
   } catch {
@@ -30,7 +30,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const deleted = await deleteByPassphrase(body.passphrase.trim().toLowerCase());
+    const passphrase = body.passphrase.trim().toLowerCase();
+
+    let deleted: boolean;
+    if (body.protocolId) {
+      // Delete a single specific cycle
+      deleted = await deleteProtocolById(body.protocolId, passphrase);
+    } else {
+      // Delete ALL cycles for this passphrase
+      deleted = await deleteByPassphrase(passphrase);
+    }
 
     if (!deleted) {
       // Same delay as lookup to prevent timing attacks

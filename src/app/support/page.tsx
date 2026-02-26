@@ -36,6 +36,69 @@ export default function SupportPage() {
       </div>
 
       <div className="space-y-6">
+        {/* Donate — now first and most prominent */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 text-center space-y-4">
+            <h2 className="text-base font-semibold text-foreground">
+              Donate to keep IVF Project free
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Any amount helps. Even $5 covers roughly 50–150 chat conversations.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button asChild size="lg">
+                <a
+                  href="https://ko-fi.com/ivfproject"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Donate on Ko-fi
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="lg">
+                <a
+                  href="https://github.com/sponsors/ivfproject"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  GitHub Sponsors
+                </a>
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              One-time or monthly — whatever feels right. No account needed for Ko-fi.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Where the money goes + RESOLVE */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Where the money goes</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-3">
+            <p>
+              100% of donations go directly to hosting and API costs. There are
+              no salaries, no overhead, no middlemen. This is a volunteer project.
+            </p>
+            <p>
+              If donations ever exceed operating costs, the surplus will be donated
+              to{' '}
+              <a
+                href="https://resolve.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline font-medium"
+              >
+                RESOLVE: The National Infertility Association
+              </a>
+              {' '}— the leading nonprofit advocating for fertility treatment access
+              and insurance coverage. Through their work, over 46 million people
+              have gained new or expanded insurance coverage for infertility.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Cost transparency */}
         <Card>
           <CardHeader>
@@ -71,52 +134,26 @@ export default function SupportPage() {
           </CardContent>
         </Card>
 
-        {/* Donate */}
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="pt-6 text-center space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Any amount helps. Even $5 covers roughly 50–150 chat conversations.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button asChild size="lg">
-                <a
-                  href="https://ko-fi.com/ivfproject"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Donate on Ko-fi
-                </a>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <a
-                  href="https://github.com/sponsors/ivfproject"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  GitHub Sponsors
-                </a>
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              One-time or monthly — whatever feels right. No account needed for Ko-fi.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* What donations cover */}
-        <Card>
+        {/* A note about sustainability */}
+        <Card className="border-amber-200/50 bg-amber-50/30">
           <CardHeader>
-            <CardTitle className="text-base">Where the money goes</CardTitle>
+            <CardTitle className="text-base">A note about sustainability</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              100% of donations go directly to hosting and API costs. There are
-              no salaries, no overhead, no middlemen. This is a volunteer project.
+              This project will always be free to use. That is a promise. But running
+              AI-powered features costs real money, and those costs grow with every
+              new user.
             </p>
             <p>
-              If donations ever exceed costs, the surplus will be held for
-              future months. If the project ever shuts down, any remaining funds
-              will be donated to a fertility-related nonprofit.
+              If donations are not enough to cover costs, we may need to introduce
+              small, non-intrusive ads in the future. But the core experience —
+              research, protocol sharing, community data — will always remain free
+              and open.
+            </p>
+            <p>
+              Your support helps us avoid that. Even a small monthly donation makes
+              a difference.
             </p>
           </CardContent>
         </Card>
@@ -130,8 +167,15 @@ export default function SupportPage() {
             <ul className="list-disc list-inside space-y-1">
               <li>Share your protocol — every data point helps the community</li>
               <li>Tell someone about ivfproject.org if you think it might help them</li>
-              <li>Report bugs or suggest features on GitHub</li>
-              <li>If you are a developer, contributions are welcome</li>
+              <li>
+                <a
+                  href="mailto:feedback@ivfproject.org"
+                  className="text-primary hover:underline"
+                >
+                  Report bugs or suggest features
+                </a>
+              </li>
+              <li>If you are a developer, contributions are welcome on GitHub</li>
             </ul>
           </CardContent>
         </Card>

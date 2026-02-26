@@ -20,6 +20,7 @@ export function ProtocolSummaryCard({ data }: ProtocolSummaryCardProps) {
   if (!hasAnyData) return null;
 
   const supplements = data.supplements || [];
+  const canSubmit = data.age != null && (data.medications.length > 0 || supplements.length > 0);
 
   return (
     <Card className="border-primary/20">
@@ -31,9 +32,14 @@ export function ProtocolSummaryCard({ data }: ProtocolSummaryCardProps) {
               Ready to submit
             </Badge>
           )}
-          {!data.isComplete && data.missingRequired.length > 0 && (
+          {!data.isComplete && canSubmit && (
+            <Badge className="text-[10px] bg-amber-100 text-amber-800 hover:bg-amber-100">
+              Can submit — more details help
+            </Badge>
+          )}
+          {!data.isComplete && !canSubmit && (
             <Badge variant="secondary" className="text-[10px]">
-              Needs: {data.missingRequired.join(', ')}
+              Needs: age + at least one medication
             </Badge>
           )}
         </CardTitle>

@@ -67,8 +67,75 @@ export async function submitProtocol(data: ProtocolSubmitInput): Promise<SubmitR
 }
 
 /**
- * Look up a protocol by passphrase.
+ * Save a new protocol for a returning user (reuses their existing passphrase hash).
+ * Auto-increments cycle_number based on existing cycles.
+ */
+export function submitProtocolForReturningUser(
+  data: ProtocolSubmitInput,
+  passphraseHash: string,
+  passphrasePrefix: string
+): { protocolId: string } {
+  const db = getDb();
+  const protocolId = uuid();
+
+  // Auto-calculate cycle number: max of existing cycles + 1
+  const maxCycleRow = db.prepare(`
+    SELECT MAX(cycle_number) as max_cycle FROM protocols
+    WHERE passphrase_hash = ? AND is_active = 1
+  `).get(passphraseHash) as { max_cycle: number | null } | undefined;
+
+  const nextCycleNumber = data.cycleNumber ?? ((maxCycleRow?.max_cycle ?? 0) + 1);
+
+  const insertProtocol = db.prepare(`
+    INSERT INTO protocols (
+      id, passphrase_hash, passphrase_prefix,
+      age, age_months, amh_range, amh_value, afc_range, afc_count,
+      protocol_type, trigger_type, stim_days,
+      country, state,
+      cycle_number, cycle_type, donor_sperm, donor_eggs,
+      fertilization_method, partner_age, peak_e2, max_follicles
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertMedication = db.prepare(
+    `INSERT INTO medications (id, protocol_id, name, dosage, category) VALUES (?, ?, ?, ?, ?)`
+  );
+
+  const insertDiagnosis = db.prepare(
+    `INSERT INTO diagnoses (id, protocol_id, diagnosis) VALUES (?, ?, ?)`
+  );
+
+  const transaction = db.transaction(() => {
+    insertProtocol.run(
+      protocolId, passphraseHash, passphrasePrefix,
+      data.age, data.ageMonths, data.amhRange, data.amhValue, data.afcRange, data.afcCount,
+      data.protocolType, data.triggerType, data.stimDays,
+      data.country, data.state,
+      nextCycleNumber, data.cycleType,
+      data.donorSperm == null ? null : data.donorSperm ? 1 : 0,
+      data.donorEggs == null ? null : data.donorEggs ? 1 : 0,
+      data.fertilizationMethod, data.partnerAge, data.peakE2, data.maxFollicles
+    );
+
+    for (const med of data.medications) {
+      insertMedication.run(uuid(), protocolId, med.name, med.dosage, med.category || 'stim');
+    }
+
+    for (const dx of data.diagnoses ?? []) {
+      insertDiagnosis.run(uuid(), protocolId, dx);
+    }
+  });
+
+  transaction();
+
+  return { protocolId };
+}
+
+/**
+ * Look up a single protocol by passphrase.
  * Uses prefix-accelerated bcrypt comparison.
+ * Returns the first matching protocol (for backwards compatibility).
  */
 export async function lookupByPassphrase(passphrase: string): Promise<ProtocolWithOutcome | null> {
   const db = getDb();
@@ -82,25 +149,72 @@ export async function lookupByPassphrase(passphrase: string): Promise<ProtocolWi
   for (const row of candidates) {
     const matches = await comparePassphrase(passphrase, row.passphrase_hash as string);
     if (matches) {
-      const protocol = rowToProtocol(row);
-
-      // Fetch medications
-      const meds = db.prepare(`SELECT name, dosage, category FROM medications WHERE protocol_id = ?`).all(row.id as string) as Medication[];
-      protocol.medications = meds;
-
-      // Fetch diagnoses
-      const dxRows = db.prepare(`SELECT diagnosis FROM diagnoses WHERE protocol_id = ?`).all(row.id as string) as Array<{ diagnosis: string }>;
-      protocol.diagnoses = dxRows.map(d => d.diagnosis as Diagnosis);
-
-      // Fetch outcome
-      const outcomeRow = db.prepare(`SELECT * FROM outcomes WHERE protocol_id = ?`).get(row.id as string) as Record<string, unknown> | undefined;
-      const outcome = outcomeRow ? rowToOutcome(outcomeRow) : null;
-
-      return { ...protocol, outcome };
+      return hydrateProtocol(db, row);
     }
   }
 
   return null;
+}
+
+/**
+ * Look up ALL protocols for a passphrase (multi-cycle support).
+ * Returns all protocols sharing the same passphrase, sorted newest-first.
+ */
+export async function lookupAllByPassphrase(passphrase: string): Promise<ProtocolWithOutcome[]> {
+  const db = getDb();
+  const prefix = computePrefix(passphrase);
+
+  // Narrow search using prefix
+  const candidates = db.prepare(`
+    SELECT * FROM protocols WHERE passphrase_prefix = ? AND is_active = 1
+  `).all(prefix) as Array<Record<string, unknown>>;
+
+  // Find the first bcrypt match to get the hash
+  let matchedHash: string | null = null;
+  for (const row of candidates) {
+    const matches = await comparePassphrase(passphrase, row.passphrase_hash as string);
+    if (matches) {
+      matchedHash = row.passphrase_hash as string;
+      break;
+    }
+  }
+
+  if (!matchedHash) return [];
+
+  // Fetch ALL protocols with the same hash, sorted newest-first
+  const allRows = db.prepare(`
+    SELECT * FROM protocols
+    WHERE passphrase_hash = ? AND is_active = 1
+    ORDER BY submitted_at DESC
+  `).all(matchedHash) as Array<Record<string, unknown>>;
+
+  const results: ProtocolWithOutcome[] = [];
+  for (const row of allRows) {
+    results.push(hydrateProtocol(db, row));
+  }
+
+  return results;
+}
+
+/**
+ * Hydrate a protocol row with its medications, diagnoses, and outcome.
+ */
+function hydrateProtocol(db: ReturnType<typeof getDb>, row: Record<string, unknown>): ProtocolWithOutcome {
+  const protocol = rowToProtocol(row);
+
+  // Fetch medications
+  const meds = db.prepare(`SELECT name, dosage, category FROM medications WHERE protocol_id = ?`).all(row.id as string) as Medication[];
+  protocol.medications = meds;
+
+  // Fetch diagnoses
+  const dxRows = db.prepare(`SELECT diagnosis FROM diagnoses WHERE protocol_id = ?`).all(row.id as string) as Array<{ diagnosis: string }>;
+  protocol.diagnoses = dxRows.map(d => d.diagnosis as Diagnosis);
+
+  // Fetch outcome
+  const outcomeRow = db.prepare(`SELECT * FROM outcomes WHERE protocol_id = ?`).get(row.id as string) as Record<string, unknown> | undefined;
+  const outcome = outcomeRow ? rowToOutcome(outcomeRow) : null;
+
+  return { ...protocol, outcome };
 }
 
 /**
@@ -154,9 +268,9 @@ export function upsertOutcome(protocolId: string, data: OutcomeSubmitInput): voi
 }
 
 /**
- * Hard-delete a protocol and all related data (medications, outcomes, diagnoses).
- * Uses prefix-accelerated bcrypt lookup, same as lookupByPassphrase.
- * Returns true if a record was found and deleted.
+ * Hard-delete ALL protocols for a passphrase and all related data.
+ * Uses prefix-accelerated bcrypt lookup.
+ * Returns true if any records were found and deleted.
  */
 export async function deleteByPassphrase(passphrase: string): Promise<boolean> {
   const db = getDb();
@@ -166,17 +280,77 @@ export async function deleteByPassphrase(passphrase: string): Promise<boolean> {
     `SELECT id, passphrase_hash FROM protocols WHERE passphrase_prefix = ? AND is_active = 1`
   ).all(prefix) as Array<{ id: string; passphrase_hash: string }>;
 
+  // Find the matching hash
+  let matchedHash: string | null = null;
   for (const row of candidates) {
     const matches = await comparePassphrase(passphrase, row.passphrase_hash);
     if (matches) {
-      // CASCADE deletes medications + outcomes + diagnoses automatically
-      const deleteProtocol = db.prepare(`DELETE FROM protocols WHERE id = ?`);
-      deleteProtocol.run(row.id);
-      return true;
+      matchedHash = row.passphrase_hash;
+      break;
     }
   }
 
-  return false;
+  if (!matchedHash) return false;
+
+  // Delete ALL protocols with the same hash
+  const allRows = db.prepare(
+    `SELECT id FROM protocols WHERE passphrase_hash = ? AND is_active = 1`
+  ).all(matchedHash) as Array<{ id: string }>;
+
+  const deleteProtocol = db.prepare(`DELETE FROM protocols WHERE id = ?`);
+  const transaction = db.transaction(() => {
+    for (const row of allRows) {
+      // CASCADE deletes medications + outcomes + diagnoses automatically
+      deleteProtocol.run(row.id);
+    }
+  });
+  transaction();
+
+  return allRows.length > 0;
+}
+
+/**
+ * Hard-delete a single protocol by ID, after verifying passphrase ownership.
+ * Returns true if the protocol was found and deleted.
+ */
+export async function deleteProtocolById(protocolId: string, passphrase: string): Promise<boolean> {
+  const db = getDb();
+
+  // Fetch the protocol to verify ownership
+  const row = db.prepare(
+    `SELECT passphrase_hash FROM protocols WHERE id = ? AND is_active = 1`
+  ).get(protocolId) as { passphrase_hash: string } | undefined;
+
+  if (!row) return false;
+
+  const matches = await comparePassphrase(passphrase, row.passphrase_hash);
+  if (!matches) return false;
+
+  // CASCADE deletes medications + outcomes + diagnoses automatically
+  db.prepare(`DELETE FROM protocols WHERE id = ?`).run(protocolId);
+  return true;
+}
+
+/**
+ * Get the passphrase hash and prefix for a verified passphrase.
+ * Used when a returning user submits a new cycle.
+ */
+export async function getPassphraseCredentials(passphrase: string): Promise<{ hash: string; prefix: string } | null> {
+  const db = getDb();
+  const prefix = computePrefix(passphrase);
+
+  const candidates = db.prepare(
+    `SELECT passphrase_hash, passphrase_prefix FROM protocols WHERE passphrase_prefix = ? AND is_active = 1`
+  ).all(prefix) as Array<{ passphrase_hash: string; passphrase_prefix: string }>;
+
+  for (const row of candidates) {
+    const matches = await comparePassphrase(passphrase, row.passphrase_hash);
+    if (matches) {
+      return { hash: row.passphrase_hash, prefix: row.passphrase_prefix };
+    }
+  }
+
+  return null;
 }
 
 function rowToProtocol(row: Record<string, unknown>): Protocol {
@@ -188,7 +362,7 @@ function rowToProtocol(row: Record<string, unknown>): Protocol {
     amhValue: (row.amh_value as number) ?? null,
     afcRange: (row.afc_range as Protocol['afcRange']) || null,
     afcCount: (row.afc_count as number) ?? null,
-    protocolType: row.protocol_type as Protocol['protocolType'],
+    protocolType: (row.protocol_type as Protocol['protocolType']) ?? null,
     triggerType: (row.trigger_type as Protocol['triggerType']) || null,
     stimDays: (row.stim_days as number) || null,
     country: (row.country as string) || null,

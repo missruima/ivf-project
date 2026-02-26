@@ -12,8 +12,11 @@ import {
 
 export const medicationSchema = z.object({
   name: z.string().min(1).max(100),
-  dosage: z.string().max(50).default(''),
-  category: z.enum(MEDICATION_CATEGORIES).default('stim'),
+  dosage: z.preprocess((v) => (v == null ? '' : v), z.string().max(50).default('')),
+  category: z.preprocess(
+    (v) => (v == null || typeof v !== 'string' ? 'stim' : v),
+    z.enum(MEDICATION_CATEGORIES).default('stim'),
+  ),
 });
 
 export const protocolSubmitSchema = z.object({
@@ -23,7 +26,7 @@ export const protocolSubmitSchema = z.object({
   amhValue: z.number().min(0).max(30).nullable().default(null),
   afcRange: z.enum(AFC_RANGES).nullable().default(null),
   afcCount: z.number().int().min(0).max(80).nullable().default(null),
-  protocolType: z.enum(PROTOCOL_TYPES),
+  protocolType: z.enum(PROTOCOL_TYPES).nullable().default(null),
   triggerType: z.enum(TRIGGER_TYPES).nullable().default(null),
   stimDays: z.number().int().min(1).max(30).nullable().default(null),
   country: z.string().max(60).nullable().default(null),
@@ -37,7 +40,7 @@ export const protocolSubmitSchema = z.object({
   peakE2: z.number().min(0).max(20000).nullable().default(null),
   maxFollicles: z.number().int().min(0).max(80).nullable().default(null),
   diagnoses: z.array(z.enum(DIAGNOSES)).default([]),
-  medications: z.array(medicationSchema).max(30).default([]),
+  medications: z.array(medicationSchema).min(1).max(30),
 });
 
 export type ProtocolSubmitInput = z.infer<typeof protocolSubmitSchema>;

@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { DisclaimerBanner } from '@/components/layout/DisclaimerBanner';
 import { AcknowledgmentGate } from '@/components/layout/AcknowledgmentGate';
+import { OnboardingWalkthrough } from '@/components/layout/OnboardingWalkthrough';
 import './globals.css';
 
 const geistSans = Geist({
@@ -99,6 +100,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
         <AcknowledgmentGate>
+          <OnboardingWalkthrough />
           <DisclaimerBanner />
           <Header />
           <main className="flex-1 min-h-0">{children}</main>

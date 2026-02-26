@@ -71,15 +71,27 @@ export function getAggregateStats(
   const conditions: string[] = ['p.is_active = 1'];
   const params: unknown[] = [];
 
+  // Exclude rows where the grouped column is NULL — partial submissions should
+  // never pollute aggregate stats for a column they don't have data for.
+  if (groupByCol === 'protocol_type') {
+    conditions.push('p.protocol_type IS NOT NULL');
+  }
+  if (groupByCol === 'amh_range') {
+    conditions.push('p.amh_range IS NOT NULL');
+  }
+  // age is NOT NULL in the DB so age/age_bracket don't need this guard
+
   if (filters.ageBracket) {
     conditions.push(`(${AGE_BRACKET_EXPR}) = ?`);
     params.push(filters.ageBracket);
   }
   if (filters.protocolType) {
+    conditions.push('p.protocol_type IS NOT NULL');
     conditions.push('p.protocol_type = ?');
     params.push(filters.protocolType);
   }
   if (filters.amhRange) {
+    conditions.push('p.amh_range IS NOT NULL');
     conditions.push('p.amh_range = ?');
     params.push(filters.amhRange);
   }

@@ -7,9 +7,10 @@ import type { ChatMessage, PubMedCitation } from '@/types/chat';
 interface UseChatOptions {
   endpoint: string;
   onExtractedData?: (data: Record<string, unknown>) => void;
+  extraBody?: Record<string, unknown>;
 }
 
-export function useChat({ endpoint, onExtractedData }: UseChatOptions) {
+export function useChat({ endpoint, onExtractedData, extraBody }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function useChat({ endpoint, onExtractedData }: UseChatOptions) {
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({ messages: history, ...extraBody }),
           signal: abortController.signal,
         });
 
@@ -155,7 +156,7 @@ export function useChat({ endpoint, onExtractedData }: UseChatOptions) {
         abortRef.current = null;
       }
     },
-    [endpoint, isStreaming, messages, onExtractedData]
+    [endpoint, isStreaming, messages, onExtractedData, extraBody]
   );
 
   const stopStreaming = useCallback(() => {

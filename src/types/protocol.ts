@@ -50,7 +50,7 @@ export interface Protocol {
   amhValue: number | null;
   afcRange: AfcRange | null;
   afcCount: number | null;
-  protocolType: ProtocolType;
+  protocolType: ProtocolType | null;
   triggerType: TriggerType | null;
   stimDays: number | null;
   country: string | null;
@@ -122,6 +122,7 @@ export interface ExtractedProtocolData {
   peakE2: number | null;
   maxFollicles: number | null;
   diagnoses: Diagnosis[];
+  canSubmit: boolean;
   isComplete: boolean;
   missingRequired: string[];
 }

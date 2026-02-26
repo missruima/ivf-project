@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 7;
 
 export const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS protocols (
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS protocols (
                             '<5', '5-10', '11-15', '16-20', '21-30', '30+', 'unknown', NULL
                         )),
 
-    protocol_type       TEXT NOT NULL CHECK(protocol_type IN (
+    protocol_type       TEXT CHECK(protocol_type IS NULL OR protocol_type IN (
                             'antagonist', 'long_lupron', 'short_lupron', 'mini_ivf',
                             'natural', 'flare', 'estrogen_priming', 'other'
                         )),
@@ -185,5 +185,51 @@ export const MIGRATIONS: Record<number, string> = {
     );`,
     `CREATE INDEX IF NOT EXISTS idx_cache_hash ON response_cache(question_hash);`,
     `CREATE INDEX IF NOT EXISTS idx_cache_expires ON response_cache(expires_at);`,
+  ].join('\n'),
+  6: [
+    // Compound index for efficient multi-cycle lookup (same passphrase, ordered by date)
+    `CREATE INDEX IF NOT EXISTS idx_protocols_prefix_submitted ON protocols(passphrase_prefix, submitted_at DESC) WHERE is_active = 1;`,
+    // Index on passphrase_hash for finding all protocols belonging to same user
+    `CREATE INDEX IF NOT EXISTS idx_protocols_hash ON protocols(passphrase_hash) WHERE is_active = 1;`,
+  ].join('\n'),
+  7: [
+    // Make protocol_type nullable via table rebuild (SQLite can't ALTER COLUMN to drop NOT NULL)
+    `CREATE TABLE protocols_new (
+      id                  TEXT PRIMARY KEY,
+      passphrase_hash     TEXT NOT NULL,
+      passphrase_prefix   TEXT NOT NULL,
+      age                 INTEGER NOT NULL CHECK(age BETWEEN 18 AND 55),
+      age_months          INTEGER CHECK(age_months IS NULL OR age_months BETWEEN 0 AND 11),
+      amh_range           TEXT CHECK(amh_range IN ('<0.5', '0.5-1.0', '1.0-1.5', '1.5-2.0', '2.0-3.0', '3.0-4.0', '4.0+', 'unknown', NULL)),
+      afc_range           TEXT CHECK(afc_range IN ('<5', '5-10', '11-15', '16-20', '21-30', '30+', 'unknown', NULL)),
+      protocol_type       TEXT CHECK(protocol_type IS NULL OR protocol_type IN ('antagonist', 'long_lupron', 'short_lupron', 'mini_ivf', 'natural', 'flare', 'estrogen_priming', 'other')),
+      trigger_type        TEXT CHECK(trigger_type IN ('hcg', 'lupron', 'dual', 'other', 'unknown', NULL)),
+      stim_days           INTEGER CHECK(stim_days IS NULL OR stim_days BETWEEN 1 AND 30),
+      country             TEXT,
+      state               TEXT,
+      cycle_number        INTEGER CHECK(cycle_number IS NULL OR cycle_number BETWEEN 1 AND 20),
+      cycle_type          TEXT CHECK(cycle_type IN ('fresh_transfer', 'freeze_all', 'fresh_to_frozen', 'cancelled', NULL)),
+      donor_sperm         INTEGER CHECK(donor_sperm IN (0, 1, NULL)),
+      donor_eggs          INTEGER CHECK(donor_eggs IN (0, 1, NULL)),
+      fertilization_method TEXT CHECK(fertilization_method IN ('standard', 'icsi', 'imsi', 'picsi', 'macs', 'other', NULL)),
+      partner_age         INTEGER CHECK(partner_age IS NULL OR partner_age BETWEEN 18 AND 80),
+      peak_e2             REAL CHECK(peak_e2 IS NULL OR peak_e2 BETWEEN 0 AND 20000),
+      max_follicles       INTEGER CHECK(max_follicles IS NULL OR max_follicles BETWEEN 0 AND 80),
+      amh_value           REAL CHECK(amh_value IS NULL OR amh_value BETWEEN 0 AND 30),
+      afc_count           INTEGER CHECK(afc_count IS NULL OR afc_count BETWEEN 0 AND 80),
+      submitted_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+      is_active           INTEGER NOT NULL DEFAULT 1
+    );`,
+    `INSERT INTO protocols_new SELECT * FROM protocols;`,
+    `DROP TABLE protocols;`,
+    `ALTER TABLE protocols_new RENAME TO protocols;`,
+    // Recreate all indexes
+    `CREATE INDEX IF NOT EXISTS idx_protocols_age ON protocols(age) WHERE is_active = 1;`,
+    `CREATE INDEX IF NOT EXISTS idx_protocols_protocol_type ON protocols(protocol_type) WHERE is_active = 1;`,
+    `CREATE INDEX IF NOT EXISTS idx_protocols_amh_range ON protocols(amh_range) WHERE is_active = 1;`,
+    `CREATE INDEX IF NOT EXISTS idx_protocols_prefix ON protocols(passphrase_prefix);`,
+    `CREATE INDEX IF NOT EXISTS idx_protocols_prefix_submitted ON protocols(passphrase_prefix, submitted_at DESC) WHERE is_active = 1;`,
+    `CREATE INDEX IF NOT EXISTS idx_protocols_hash ON protocols(passphrase_hash) WHERE is_active = 1;`,
   ].join('\n'),
 };
