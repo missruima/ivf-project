@@ -14,8 +14,8 @@ export function getAdminStats(): AdminStatsResponse {
   const overview = db.prepare(`
     SELECT
       COUNT(*) as total_protocols,
-      SUM(CASE WHEN passphrase_prefix != 'IMPORTED' THEN 1 ELSE 0 END) as total_new,
-      SUM(CASE WHEN passphrase_prefix = 'IMPORTED' THEN 1 ELSE 0 END) as total_imported
+      COALESCE(SUM(CASE WHEN passphrase_prefix != 'IMPORTED' THEN 1 ELSE 0 END), 0) as total_new,
+      COALESCE(SUM(CASE WHEN passphrase_prefix = 'IMPORTED' THEN 1 ELSE 0 END), 0) as total_imported
     FROM protocols
     WHERE is_active = 1
   `).get() as { total_protocols: number; total_new: number; total_imported: number };

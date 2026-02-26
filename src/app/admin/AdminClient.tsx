@@ -19,11 +19,12 @@ function fillDailyGaps(data: DailySubmission[]): DailySubmission[] {
   const filled: DailySubmission[] = [];
   const map = new Map(data.map((d) => [d.date, d.count]));
 
-  // Build a range from first data point to today
-  const start = new Date(data[0].date);
-  const end = new Date();
+  // Build a range from first data point to today (UTC-normalized)
+  const start = new Date(data[0].date + 'T00:00:00Z');
+  const today = new Date();
+  const end = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
 
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     const key = d.toISOString().slice(0, 10);
     filled.push({ date: key, count: map.get(key) ?? 0 });
   }
@@ -167,7 +168,7 @@ export default function AdminClient() {
       {stats && (
         <>
           {/* Overview cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <StatCard label="Total Protocols" value={stats.overview.totalProtocols} />
             <StatCard
               label="New Submissions"
@@ -177,20 +178,12 @@ export default function AdminClient() {
             <StatCard label="Imported" value={stats.overview.totalImported} />
             <StatCard label="Outcomes" value={stats.overview.totalOutcomes} />
             <StatCard
-              label="Research Chats"
-              value={stats.overview.totalResearchChats}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <StatCard
               label="Outcome Rate"
               value={`${stats.overview.outcomeRate}%`}
             />
             <StatCard
-              label="Imported (Original)"
-              value={stats.overview.totalImported}
-              subtitle="From community spreadsheet"
+              label="Research Chats"
+              value={stats.overview.totalResearchChats}
             />
           </div>
 
