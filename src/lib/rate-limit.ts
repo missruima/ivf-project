@@ -1,5 +1,4 @@
 /** Bounded, process-local rate limiting. IP values are never persisted. */
-import { createHash, timingSafeEqual } from 'crypto';
 
 interface RateLimitEntry {
   timestamps: number[];
@@ -82,19 +81,10 @@ export function getClientId(request: Request, endpoint: string): string {
     if (!value || value.length > 64 || !/^[0-9a-fA-F:.]+$/.test(value)) return null;
     return value;
   };
-  // Only trust a client address when Caddy proves the request passed through
-  // the private upstream. Without this token, fail closed to a shared bucket.
-  const configuredToken = process.env.TRUSTED_PROXY_TOKEN;
-  const presentedToken = request.headers.get('x-origin-token');
-  const digest = (value: string) => createHash('sha256').update(value).digest();
-  const trusted = Boolean(
-    configuredToken && configuredToken.length >= 24 && presentedToken &&
-    timingSafeEqual(digest(configuredToken), digest(presentedToken)),
-  );
-  const cloudflare = trusted
-    ? validAddress(request.headers.get('cf-connecting-ip')?.trim() ?? null)
-    : null;
-  const ip = cloudflare ?? 'unknown';
+  // Caddy overwrites this header with the TCP peer address. The Next listener
+  // binds to loopback, so a client cannot reach it directly and forge the key.
+  // Common forwarding headers are intentionally ignored.
+  const ip = validAddress(request.headers.get('x-rate-limit-ip')?.trim() ?? null) ?? 'unknown';
   return `${ip}:${endpoint}`;
 }
 

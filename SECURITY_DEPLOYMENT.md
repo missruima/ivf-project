@@ -8,19 +8,17 @@ push is not a complete deployment until the checks below pass.
 1. Keep the Next/PM2 port private. Only Caddy should reach it.
 2. Confirm Cloudflare proxying is enabled and direct requests to the origin
    cannot supply a trusted client address.
-3. Generate a random `TRUSTED_PROXY_TOKEN` of at least 24 characters. Set the
-   same value in the PM2 environment and have Caddy overwrite the upstream
-   header:
+3. Have Caddy overwrite a dedicated upstream header with the TCP peer address:
 
    ```caddy
    reverse_proxy 127.0.0.1:3000 {
-       header_up X-Origin-Token "{env.TRUSTED_PROXY_TOKEN}"
+       header_up X-Rate-Limit-IP {http.request.remote.host}
    }
    ```
 
-   Cloudflare must overwrite `CF-Connecting-IP`; do not expose the origin
-   directly. Without a matching origin token, the app deliberately puts all
-   clients in one conservative rate-limit bucket.
+   The app ignores `X-Forwarded-For` and `CF-Connecting-IP`. When Cloudflare is
+   in front, this deliberately keys by Cloudflare peer rather than trusting a
+   client-controlled forwarding header.
 4. Run PM2 in single-instance fork mode. The in-memory limiter is bounded but
    not shared across cluster workers.
 5. Back up the live database with SQLite's backup API while the existing app is
@@ -37,7 +35,7 @@ Run `npm ci`, `npm test`, `npm run lint`, `npm run build`, and
 - the homepage, privacy page, dashboard, and robots/sitemap load;
 - security headers are present and `X-Powered-By` is absent;
 - oversized chunked AI requests return 413;
-- forged forwarding headers without the Caddy token share the `unknown` bucket;
+- forged forwarding headers cannot change Caddy's overwritten limiter key;
 - the admin API returns 503 with no configured secret and 401 for a wrong one;
 - a controlled new record can be created, retrieved, updated, and deleted;
 - an existing legacy passphrase still retrieves its controlled fixture;

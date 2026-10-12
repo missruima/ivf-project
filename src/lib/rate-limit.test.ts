@@ -9,11 +9,9 @@ describe('bounded rate limiter', () => {
     expect(getClientId(request, 'test')).toBe('unknown:test');
   });
 
-  it('uses Cloudflare client IP only when Caddy supplies the private token', () => {
-    process.env.TRUSTED_PROXY_TOKEN = 'proxy-secret-with-at-least-24-characters';
-    const request = new Request('https://example.test', { headers: { 'x-origin-token': process.env.TRUSTED_PROXY_TOKEN, 'cf-connecting-ip': '1.2.3.4' } });
+  it('uses only the dedicated Caddy-overwritten limiter header', () => {
+    const request = new Request('https://example.test', { headers: { 'x-rate-limit-ip': '1.2.3.4', 'cf-connecting-ip': '9.9.9.9' } });
     expect(getClientId(request, 'test')).toBe('1.2.3.4:test');
-    delete process.env.TRUSTED_PROXY_TOKEN;
   });
 
   it('blocks after the configured limit', () => {
