@@ -1,35 +1,35 @@
 # IVF Project
-> A free, open-source, privacy-first tool for understanding IVF (in vitro fertilization).
+> A free, open-source tool for navigating IVF literature and community-shared protocol data.
 
 ## About
-IVF Project (https://ivfproject.org) is a non-profit, community-driven tool that helps people understand IVF research and outcomes. It combines published PubMed research with anonymized, self-reported community data from 400+ IVF cycles. The project is fully open source, has no ads, no tracking, no cookies, and requires no accounts.
+IVF Project (https://ivfproject.org) is a volunteer, community-driven tool that helps people navigate IVF research and protocol data. It combines PubMed search results with aggregate, pseudonymous data from 400+ community-shared IVF protocols. As of October 2026, those records contain no outcome reports, so the site cannot calculate community outcome rates. The project is open source, has no ads or analytics, and requires no accounts.
 
 ## Features
 
 ### IVF Explorer (/research)
 An AI-powered research assistant that answers IVF questions by combining:
 - Published research from PubMed (the largest biomedical research database)
-- Anonymized community-reported data from IVF cycles shared by users
-All claims are cited with PubMed IDs (PMIDs). Responses include disclaimers that this is not medical advice.
+- Aggregate, pseudonymous protocol data shared by users
+Responses include PubMed citations and disclaimers that the AI output is not medical advice or a verified evidence review.
 
 ### Community Data Dashboard (/dashboard)
 Interactive charts and statistics showing aggregate IVF outcomes broken down by:
 - Age bracket
 - Protocol type (Antagonist, Long Lupron, Short Lupron, Mini IVF, Natural IVF, etc.)
 - AMH range
-Data includes: eggs retrieved, mature eggs, fertilization rates, blastocyst rates, PGT-normal counts, and transfer outcomes. All data is anonymized with k-anonymity (minimum group size of 5).
+The dashboard suppresses filtered cohorts smaller than five. It currently contains protocol records but no outcome reports, so no outcome rates are available.
 
 ### Protocol Sharing (/share)
-Users can anonymously share their IVF protocol through a conversational chat interface. An AI extracts structured data (age, AMH, protocol type, medications, supplements, etc.) from natural language descriptions. No forms, no accounts — just describe your cycle in your own words. Users receive a passphrase to return and update their record later.
+Users can pseudonymously share an IVF protocol through a conversational chat interface. An AI extracts structured data (age, AMH, protocol type, medications, supplements, etc.) from natural-language descriptions. Users should omit direct identifiers and receive a passphrase to return and update their record later.
 
 ### Outcome Updates (/update)
 Users return with their passphrase to add outcomes (eggs retrieved, mature, fertilized, blasts, PGT results, transfer outcome) to their previously shared protocol.
 
 ## Data & Privacy
-- No accounts, emails, or personal identifiers collected
+- No account or email is required; users are asked not to submit direct identifiers
 - No cookies, no analytics, no tracking
 - Data is coarsened (AMH/AFC stored as ranges, ages grouped into brackets)
-- k-anonymity enforced: groups with fewer than 5 people are never shown
+- Filtered cohorts smaller than five are suppressed; this reduces but does not eliminate re-identification risk
 - IP addresses used only transiently for rate limiting, never stored
 - Users can delete their data at any time using their passphrase
 - Full privacy policy: https://ivfproject.org/privacy
@@ -37,7 +37,7 @@ Users return with their passphrase to add outcomes (eggs retrieved, mature, fert
 ## Technology
 - Built with Next.js and TypeScript
 - Research powered by PubMed E-utilities API (free, public)
-- Chat powered by Claude (Anthropic)
+- Chat messages are processed by Claude (Anthropic); research queries are also sent to PubMed
 - Data stored in SQLite with WAL mode
 - Hosted on a single VPS — no cloud dependencies
 

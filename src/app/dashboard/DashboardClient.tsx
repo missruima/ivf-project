@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Label,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,14 +20,12 @@ import {
 import type { StatsResponse, AggregateGroup, FunnelStats } from '@/types/stats';
 
 const GROUP_OPTIONS = [
-  { value: 'age', label: 'Age (by year)' },
   { value: 'age_bracket', label: 'Age (groups)' },
   { value: 'protocol_type', label: 'Protocol Type' },
   { value: 'amh_range', label: 'AMH Range' },
 ];
 
 const GROUP_X_LABELS: Record<string, string> = {
-  age: 'Age (years)',
   age_bracket: 'Age Group',
   protocol_type: 'Protocol Type',
   amh_range: 'AMH (ng/mL)',
@@ -67,7 +65,7 @@ const DEFAULT_FILTERS: Filters = {
 };
 
 export default function DashboardClient() {
-  const [groupBy, setGroupBy] = useState('age');
+  const [groupBy, setGroupBy] = useState('age_bracket');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,7 +114,7 @@ export default function DashboardClient() {
       <div className="text-center mb-6">
         <h1 className="text-2xl font-semibold">Community Data</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Anonymized, aggregate outcomes reported by the community
+          Pseudonymous, community-shared protocols; outcome data is shown only when available
         </p>
       </div>
 
@@ -166,13 +164,13 @@ export default function DashboardClient() {
           {/* Cohort indicator */}
           {stats && hasActiveFilters && (
             <p className="text-xs text-muted-foreground mt-3">
-              {stats.filteredRecords === 0 ? (
-                'No protocols match these filters yet.'
+              {stats.insufficientData ? (
+                'Not enough submissions to display this filtered cohort (minimum 5 for privacy).'
               ) : (
                 <>
                   Showing <span className="font-medium text-foreground">{stats.filteredRecords}</span>
                   {' '}of {stats.totalRecords} protocols
-                  {stats.filteredRecords > 0 && stats.groups.length === 0 && (
+                  {(stats.filteredRecords ?? 0) > 0 && stats.groups.length === 0 && (
                     <span className="text-amber-600 dark:text-amber-400">
                       {' '}&mdash; not enough in any single group to display (minimum 5 per group for privacy)
                     </span>
@@ -207,7 +205,7 @@ export default function DashboardClient() {
           />
           <StatCard
             label={hasActiveFilters ? 'Matching Filters' : 'With Outcomes'}
-            value={hasActiveFilters ? stats.filteredRecords : stats.totalWithOutcomes}
+            value={hasActiveFilters ? (stats.filteredRecords ?? 'Hidden') : stats.totalWithOutcomes}
           />
           <StatCard
             label="Groups Shown"
@@ -236,8 +234,17 @@ export default function DashboardClient() {
         </Card>
       )}
 
+      {stats && !isLoading && stats.totalWithOutcomes === 0 && (
+        <Card className="mb-6">
+          <CardContent className="py-8 text-center">
+            <p className="text-sm font-medium">No outcome reports are available yet</p>
+            <p className="text-xs text-muted-foreground mt-1">The 400+ records currently describe protocols, not measured outcomes. Outcome rates cannot be calculated.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Population funnel */}
-      {stats && !isLoading && stats.funnel.totalCycles > 0 && (
+      {stats && !isLoading && stats.funnel && stats.funnel.totalCycles > 0 && (
         <FunnelCard funnel={stats.funnel} filtered={hasActiveFilters} />
       )}
 

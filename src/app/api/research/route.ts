@@ -4,8 +4,8 @@ import { getResearchSystemPrompt } from '@/lib/prompts/research-system';
 import { getCommunityDataContext } from '@/lib/services/community-stats-context';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 import { checkTopicRelevance } from '@/lib/topic-guard';
-import { lookupCache, writeCache, purgeExpiredCache } from '@/lib/services/cache';
 import type { PubMedCitation } from '@/types/chat';
+import { readBoundedJson, RESEARCH_LIMITS, validateChatPayload } from '@/lib/request-validation';
 
 const anthropic = new Anthropic();
 
@@ -25,20 +25,17 @@ export async function POST(request: Request) {
     );
   }
 
-  // Probabilistic cache cleanup (~1% of requests)
-  if (Math.random() < 0.01) {
-    try { purgeExpiredCache(); } catch { /* non-critical */ }
-  }
-
-  let body: { messages: { role: 'user' | 'assistant'; content: string }[] };
+  let rawBody: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'Invalid request body.' }, { status: 400 });
+    rawBody = await readBoundedJson(request);
+  } catch (error) {
+    const status = error instanceof Error && error.message === 'body_too_large' ? 413 : 400;
+    return Response.json({ error: status === 413 ? 'Request body is too large.' : 'Invalid request body.' }, { status });
   }
 
-  if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
-    return Response.json({ error: 'Messages are required.' }, { status: 400 });
+  const body = validateChatPayload(rawBody, RESEARCH_LIMITS);
+  if (!body) {
+    return Response.json({ error: 'Invalid or oversized messages.' }, { status: 400 });
   }
 
   // Topic relevance check — blocks obviously off-topic messages before spending tokens
@@ -53,17 +50,6 @@ export async function POST(request: Request) {
     .find((m) => m.role === 'user');
   if (!latestUserMessage) {
     return Response.json({ error: 'No user message found.' }, { status: 400 });
-  }
-
-  // ── Cache lookup (first-turn only) ──
-  // Multi-turn conversations depend on context and can't be reliably cached.
-  const isFirstTurn = body.messages.filter((m) => m.role === 'user').length === 1;
-
-  if (isFirstTurn) {
-    const cached = lookupCache(latestUserMessage.content);
-    if (cached) {
-      return streamCachedResponse(cached.responseText, cached.citations);
-    }
   }
 
   // Search PubMed for relevant articles
@@ -91,8 +77,6 @@ export async function POST(request: Request) {
 
   // Stream Claude response
   const encoder = new TextEncoder();
-  let fullResponseText = '';
-
   const stream = new ReadableStream({
     async start(controller) {
       try {
@@ -104,14 +88,13 @@ export async function POST(request: Request) {
             role: m.role,
             content: m.content,
           })),
-        });
+        }, { signal: AbortSignal.any([request.signal, AbortSignal.timeout(60000)]) });
 
         for await (const event of anthropicStream) {
           if (
             event.type === 'content_block_delta' &&
             event.delta.type === 'text_delta'
           ) {
-            fullResponseText += event.delta.text;
             const data = JSON.stringify({
               type: 'text',
               content: event.delta.text,
@@ -124,27 +107,18 @@ export async function POST(request: Request) {
         if (citations.length > 0) {
           const citationData = JSON.stringify({
             type: 'citations',
-            papers: citations.map(({ abstract: _abstract, ...rest }) => rest),
+            papers: citations.map(({ abstract, ...rest }) => {
+              void abstract;
+              return rest;
+            }),
           });
           controller.enqueue(encoder.encode(`data: ${citationData}\n\n`));
         }
 
         controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'));
 
-        // ── Cache write (first-turn, non-trivial responses only) ──
-        if (isFirstTurn && fullResponseText.length > 50) {
-          try {
-            writeCache(
-              latestUserMessage.content,
-              fullResponseText,
-              citations.length > 0 ? citations : null,
-              'live'
-            );
-          } catch {
-            // Cache write failure is non-critical
-          }
-        }
       } catch (error) {
+        console.error('[research] AI service error:', error instanceof Error ? error.name : 'unknown');
         const errorData = JSON.stringify({
           type: 'error',
           error: 'An error occurred while generating a response. Please try again.',
@@ -156,32 +130,5 @@ export async function POST(request: Request) {
     },
   });
 
-  return new Response(stream, { headers: SSE_HEADERS });
-}
-
-/**
- * Stream a cached response back to the client using the same SSE format.
- * Sent as a single text chunk for instant display.
- */
-function streamCachedResponse(
-  responseText: string,
-  citations: PubMedCitation[] | null
-): Response {
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    start(controller) {
-      const textData = JSON.stringify({ type: 'text', content: responseText });
-      controller.enqueue(encoder.encode(`data: ${textData}\n\n`));
-
-      if (citations && citations.length > 0) {
-        const citationData = JSON.stringify({ type: 'citations', papers: citations });
-        controller.enqueue(encoder.encode(`data: ${citationData}\n\n`));
-      }
-
-      controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'));
-      controller.close();
-    },
-  });
-
-  return new Response(stream, { headers: SSE_HEADERS });
+  return new Response(stream, { headers: { ...SSE_HEADERS, 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' } });
 }

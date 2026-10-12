@@ -3,30 +3,34 @@ import { EXTRACTION_SYSTEM_PROMPT } from '@/lib/prompts/extraction-system';
 import { buildReturningUserPrompt } from '@/lib/prompts/extraction-returning';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 import { checkTopicRelevance } from '@/lib/topic-guard';
+import { EXTRACTION_LIMITS, readBoundedJson, validateChatPayload } from '@/lib/request-validation';
 
 const anthropic = new Anthropic();
 
 export async function POST(request: Request) {
-  const clientId = getClientId(request, 'research');
-  if (isRateLimited(clientId, RATE_LIMITS.research)) {
+  const clientId = getClientId(request, 'protocolExtract');
+  if (isRateLimited(clientId, RATE_LIMITS.protocolExtract)) {
     return Response.json(
       { error: 'Please wait a moment before trying again.' },
       { status: 429 }
     );
   }
 
-  let body: {
-    messages: { role: 'user' | 'assistant'; content: string }[];
-    previousProtocol?: Record<string, unknown>;
-  };
+  let rawBody: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'Invalid request body.' }, { status: 400 });
+    rawBody = await readBoundedJson(request);
+  } catch (error) {
+    const status = error instanceof Error && error.message === 'body_too_large' ? 413 : 400;
+    return Response.json({ error: status === 413 ? 'Request body is too large.' : 'Invalid request body.' }, { status });
   }
 
-  if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
-    return Response.json({ error: 'Messages are required.' }, { status: 400 });
+  const body = validateChatPayload(rawBody, EXTRACTION_LIMITS);
+  if (!body) {
+    return Response.json({ error: 'Invalid or oversized messages.' }, { status: 400 });
+  }
+  const previousProtocol = (rawBody as Record<string, unknown>).previousProtocol;
+  if (previousProtocol !== undefined && (!previousProtocol || typeof previousProtocol !== 'object' || Array.isArray(previousProtocol) || JSON.stringify(previousProtocol).length > 16000)) {
+    return Response.json({ error: 'Invalid previous protocol.' }, { status: 400 });
   }
 
   // Topic relevance check
@@ -36,8 +40,8 @@ export async function POST(request: Request) {
   }
 
   // Use returning-user prompt if previous protocol is provided
-  const systemPrompt = body.previousProtocol
-    ? buildReturningUserPrompt(body.previousProtocol)
+  const systemPrompt = previousProtocol
+    ? buildReturningUserPrompt(previousProtocol as Record<string, unknown>)
     : EXTRACTION_SYSTEM_PROMPT;
 
   const encoder = new TextEncoder();
@@ -52,7 +56,7 @@ export async function POST(request: Request) {
             role: m.role,
             content: m.content,
           })),
-        });
+        }, { signal: AbortSignal.any([request.signal, AbortSignal.timeout(45000)]) });
 
         for await (const event of anthropicStream) {
           if (
@@ -69,11 +73,10 @@ export async function POST(request: Request) {
 
         controller.enqueue(encoder.encode('data: {"type":"done"}\n\n'));
       } catch (error) {
-        console.error('[protocol/extract] Anthropic API error:', error);
-        const msg = error instanceof Error ? error.message : 'An error occurred.';
+        console.error('[protocol/extract] AI service error:', error instanceof Error ? error.name : 'unknown');
         const errorData = JSON.stringify({
           type: 'error',
-          error: `An error occurred: ${msg}`,
+          error: 'The AI service is temporarily unavailable. Please try again.',
         });
         controller.enqueue(encoder.encode(`data: ${errorData}\n\n`));
       } finally {
@@ -85,8 +88,9 @@ export async function POST(request: Request) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-store, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

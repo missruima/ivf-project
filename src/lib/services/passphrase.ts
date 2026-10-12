@@ -10,15 +10,34 @@ function secureRandomIndex(max: number): number {
 }
 
 /**
- * Generate a memorable passphrase: adjective-noun-adjective-number
- * ~33 bits of entropy. With bcrypt + rate limiting, sufficient for this threat model.
+ * Generate a memorable high-entropy passphrase.
+ *
+ * The bundled lists contain 293 adjectives and 311 nouns. Four adjective and
+ * three noun picks plus an eight-digit suffix provide about 84 bits of entropy. Existing
+ * shorter passphrases remain valid because verification does not enforce this
+ * issuance format.
  */
 export function generatePassphrase(): string {
-  const adj1 = adjectives[secureRandomIndex(adjectives.length)];
-  const noun = nouns[secureRandomIndex(nouns.length)];
-  const adj2 = adjectives[secureRandomIndex(adjectives.length)];
-  const num = crypto.randomInt(10, 100);
-  return `${adj1}-${noun}-${adj2}-${num}`;
+  while (true) {
+    const words: string[] = [];
+    for (let i = 0; i < 3; i += 1) {
+      words.push(adjectives[secureRandomIndex(adjectives.length)]);
+      words.push(nouns[secureRandomIndex(nouns.length)]);
+    }
+    words.push(adjectives[secureRandomIndex(adjectives.length)]);
+    words.push(String(crypto.randomInt(10000000, 100000000)));
+    const passphrase = words.join('-');
+    if (Buffer.byteLength(passphrase, 'utf8') <= 72) return passphrase;
+  }
+}
+
+export const MAX_PASSPHRASE_LENGTH = 160;
+
+export function normalizePassphrase(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length < 5 || normalized.length > MAX_PASSPHRASE_LENGTH || Buffer.byteLength(normalized, 'utf8') > 72) return null;
+  return normalized;
 }
 
 /**

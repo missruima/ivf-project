@@ -275,7 +275,7 @@ export default function ShareClient() {
         <div className="text-center mb-6">
           <h1 className="text-2xl font-semibold">Share Your Protocol</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Help others by anonymously sharing your IVF cycle details
+            Share IVF cycle details pseudonymously; do not include direct identifiers
           </p>
         </div>
 
@@ -391,7 +391,7 @@ export default function ShareClient() {
         <p className="text-muted-foreground text-sm mb-6">
           {isReturningUser
             ? 'Your new cycle has been linked to your existing passphrase. When you have outcomes, come back to the Update page to add them.'
-            : 'Your protocol has been saved anonymously. When you have outcomes to share, come back with your passphrase to update your record.'}
+            : 'Your pseudonymous protocol has been saved. When you have outcomes to share, come back with your passphrase to update your record.'}
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Button variant="outline" asChild>

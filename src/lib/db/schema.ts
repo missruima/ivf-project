@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const CREATE_TABLES = `
 CREATE TABLE IF NOT EXISTS protocols (
@@ -232,4 +232,5 @@ export const MIGRATIONS: Record<number, string> = {
     `CREATE INDEX IF NOT EXISTS idx_protocols_prefix_submitted ON protocols(passphrase_prefix, submitted_at DESC) WHERE is_active = 1;`,
     `CREATE INDEX IF NOT EXISTS idx_protocols_hash ON protocols(passphrase_hash) WHERE is_active = 1;`,
   ].join('\n'),
+  8: `DELETE FROM response_cache;`,
 };

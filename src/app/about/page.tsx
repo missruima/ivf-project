@@ -68,8 +68,8 @@ export default function AboutPage() {
             <p>
               <strong>IVF Explorer</strong> connects to PubMed — the largest
               database of biomedical research — and combines published studies
-              with anonymized community data to answer your questions in plain
-              language with citations.
+              with aggregate, pseudonymous community protocol data to help you
+              navigate literature in plain language with citations.
             </p>
             <p>
               <strong>Protocol Sharing</strong> lets you describe your IVF
@@ -79,7 +79,7 @@ export default function AboutPage() {
             </p>
             <p>
               <strong>Community Data</strong> shows aggregate statistics from
-              anonymized, community-reported protocols. These are not clinical
+              pseudonymous, community-reported protocols. These are not clinical
               data — they are self-reported experiences shared to help others
               understand the range of possibilities.
             </p>

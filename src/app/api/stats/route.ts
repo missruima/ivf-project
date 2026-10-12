@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   try {
     const stats = getAggregateStats(groupBy, filters);
-    return Response.json(stats);
+    return Response.json(stats, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Stats error:', error);
     return Response.json(

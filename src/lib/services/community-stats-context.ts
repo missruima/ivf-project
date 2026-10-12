@@ -17,7 +17,11 @@ export function getCommunityDataContext(): string {
       `Community Data Summary (${byAge.totalRecords} self-reported IVF cycles, ${byAge.totalWithOutcomes} with outcomes)`
     );
 
-    sections.push(formatFunnel(byAge.funnel));
+    if (byAge.funnel && byAge.funnel.totalCycles > 0) {
+      sections.push(formatFunnel(byAge.funnel));
+    } else {
+      sections.push('No community outcome reports are currently available. Do not infer outcome rates from protocol counts.');
+    }
 
     if (byAge.groups.length > 0) {
       sections.push('BY AGE BRACKET:');

@@ -35,7 +35,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             isUser ? (
               <div className="whitespace-pre-wrap">{message.content}</div>
             ) : (
-              <div className="prose prose-sm max-w-none prose-headings:text-base prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-li:my-0.5 prose-ul:my-2">
+              <div className="chat-markdown max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.content}
                 </ReactMarkdown>

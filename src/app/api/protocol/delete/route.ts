@@ -1,5 +1,6 @@
 import { deleteByPassphrase, deleteProtocolById } from '@/lib/services/protocol';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
+import { normalizePassphrase } from '@/lib/services/passphrase';
 
 export async function POST(request: Request) {
   const clientId = getClientId(request, 'protocolDelete');
@@ -17,11 +18,12 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  if (!body.passphrase || typeof body.passphrase !== 'string') {
+  const passphrase = normalizePassphrase(body.passphrase);
+  if (!passphrase) {
     return Response.json({ error: 'Passphrase is required.' }, { status: 400 });
   }
 
-  const parts = body.passphrase.trim().toLowerCase().split('-');
+  const parts = passphrase.split('-');
   if (parts.length < 3) {
     return Response.json(
       { error: 'Invalid passphrase format.' },
@@ -30,8 +32,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const passphrase = body.passphrase.trim().toLowerCase();
-
     let deleted: boolean;
     if (body.protocolId) {
       // Delete a single specific cycle

@@ -1,6 +1,7 @@
 import { protocolSubmitSchema } from '@/lib/validators/protocol';
 import { submitProtocol, submitProtocolForReturningUser, getPassphraseCredentials } from '@/lib/services/protocol';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
+import { normalizePassphrase } from '@/lib/services/passphrase';
 
 export async function POST(request: Request) {
   const clientId = getClientId(request, 'protocolSubmit');
@@ -19,12 +20,14 @@ export async function POST(request: Request) {
   }
 
   // Extract existingPassphrase before Zod validation of protocol fields
-  const existingPassphrase = typeof body.existingPassphrase === 'string'
-    ? body.existingPassphrase.trim().toLowerCase()
-    : null;
+  const existingPassphrase = normalizePassphrase(body.existingPassphrase);
+  if (body.existingPassphrase !== undefined && !existingPassphrase) {
+    return Response.json({ error: 'Invalid passphrase.' }, { status: 400 });
+  }
 
   // Remove existingPassphrase from body before validating protocol data
-  const { existingPassphrase: _, ...protocolBody } = body;
+  const protocolBody = { ...body };
+  delete protocolBody.existingPassphrase;
 
   // Validate with Zod
   const parsed = protocolSubmitSchema.safeParse(protocolBody);

@@ -18,9 +18,10 @@ async function searchPubMed(
   maxResults: number = 5
 ): Promise<string[]> {
   const apiKey = process.env.NCBI_API_KEY;
+  const safeQuery = query.replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 500);
   const params = new URLSearchParams({
     db: 'pubmed',
-    term: `${query} AND (IVF OR "in vitro fertilization" OR "assisted reproduction")`,
+    term: `${safeQuery} AND (IVF OR "in vitro fertilization" OR "assisted reproduction")`,
     retmax: String(maxResults),
     sort: 'relevance',
     retmode: 'json',

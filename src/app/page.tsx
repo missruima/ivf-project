@@ -14,14 +14,14 @@ const features = [
     href: '/share',
     title: 'Share Your Protocol',
     description:
-      'Anonymously share your IVF protocol through a simple conversation. No forms, no accounts, no identifying information.',
+      'Share a pseudonymous IVF protocol through a simple conversation. No forms or accounts; please do not include direct identifiers.',
     icon: '💬',
   },
   {
     href: '/dashboard',
     title: 'Community Data',
     description:
-      'Explore anonymized, aggregate outcomes from the community. See reported results by age, protocol type, and more.',
+      'Explore aggregate community protocol data. Outcome measures are not currently published.',
     icon: '📊',
   },
 ];
@@ -37,7 +37,7 @@ export default function Home() {
         </h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
           A free, open-source tool built by the community, for the community.
-          Access the latest research, share your experience anonymously, and
+          Navigate published research, share your experience pseudonymously, and
           explore what others have reported.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
@@ -75,7 +75,7 @@ export default function Home() {
           </h2>
           <div className="grid gap-6 sm:grid-cols-4">
             <TrustSignal icon="🔒" text="No accounts or emails" />
-            <TrustSignal icon="👤" text="Fully anonymized data" />
+            <TrustSignal icon="👤" text="Data-minimized records" />
             <TrustSignal icon="🚫" text="No ads or tracking" />
             <TrustSignal icon="💻" text="100% open source" />
           </div>

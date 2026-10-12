@@ -1,10 +1,11 @@
 import { getDb } from '@/lib/db';
 import { MIN_GROUP_SIZE } from '@/lib/constants/disclaimers';
 import type { AggregateGroup, FunnelStats, StatsResponse } from '@/types/stats';
+import { applyStatsPrivacy } from '@/lib/stats-privacy';
 
-type GroupByColumn = 'age' | 'age_bracket' | 'protocol_type' | 'amh_range';
+type GroupByColumn = 'age_bracket' | 'protocol_type' | 'amh_range';
 
-const VALID_GROUP_BY: GroupByColumn[] = ['age', 'age_bracket', 'protocol_type', 'amh_range'];
+const VALID_GROUP_BY: GroupByColumn[] = ['age_bracket', 'protocol_type', 'amh_range'];
 
 /**
  * SQL expression that buckets exact ages into display brackets.
@@ -46,7 +47,6 @@ export function getAggregateStats(
 
   // Determine the actual SQL expression for the group-by
   const groupByExprMap: Record<GroupByColumn, string> = {
-    age: 'CAST(p.age AS TEXT)',
     age_bracket: AGE_BRACKET_EXPR,
     protocol_type: 'p.protocol_type',
     amh_range: 'p.amh_range',
@@ -55,7 +55,6 @@ export function getAggregateStats(
 
   // Determine ORDER BY — numeric for age, custom for age_bracket, alpha for rest
   const orderByMap: Record<GroupByColumn, string> = {
-    age: 'CAST(label AS INTEGER)',
     age_bracket: `CASE label
       WHEN 'Under 30' THEN 1 WHEN '30–34' THEN 2 WHEN '35–37' THEN 3
       WHEN '38–40' THEN 4 WHEN '41–42' THEN 5 WHEN '43+' THEN 6 ELSE 7 END`,
@@ -79,7 +78,7 @@ export function getAggregateStats(
   if (groupByCol === 'amh_range') {
     conditions.push('p.amh_range IS NOT NULL');
   }
-  // age is NOT NULL in the DB so age/age_bracket don't need this guard
+  // age is NOT NULL in the DB so age_bracket does not need this guard
 
   if (filters.ageBracket) {
     conditions.push(`(${AGE_BRACKET_EXPR}) = ?`);
@@ -103,11 +102,12 @@ export function getAggregateStats(
     SELECT
       (${groupByExpr}) as label,
       COUNT(DISTINCT p.id) as sample_size,
+      COUNT(DISTINCT o.id) as outcome_sample_size,
       ROUND(AVG(o.eggs_retrieved), 1) as avg_eggs_retrieved,
       ROUND(AVG(o.eggs_mature), 1) as avg_eggs_mature,
       ROUND(AVG(o.eggs_fertilized), 1) as avg_eggs_fertilized,
       ROUND(AVG(o.blasts_day5), 1) as avg_blasts_day5,
-      ROUND(AVG(COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0)), 1) as avg_blasts_total,
+      ROUND(AVG(CASE WHEN o.id IS NOT NULL THEN COALESCE(o.blasts_day5, 0) + COALESCE(o.blasts_day6, 0) + COALESCE(o.blasts_day7, 0) END), 1) as avg_blasts_total,
       ROUND(AVG(o.pgt_euploid), 1) as avg_pgt_euploid,
       SUM(CASE WHEN o.transfer_outcome = 'positive_beta' THEN 1 ELSE 0 END) as positive_beta,
       SUM(CASE WHEN o.transfer_outcome = 'negative_beta' THEN 1 ELSE 0 END) as negative_beta,
@@ -125,27 +125,26 @@ export function getAggregateStats(
     ORDER BY ${orderByExpr}
   `).all(...params, MIN_GROUP_SIZE) as Array<Record<string, unknown>>;
 
-  const groups: AggregateGroup[] = rows.map((row) => ({
-    label: row.label as string,
-    sampleSize: row.sample_size as number,
-    avgEggsRetrieved: row.avg_eggs_retrieved as number | null,
-    avgEggsMature: row.avg_eggs_mature as number | null,
-    avgEggsFertilized: row.avg_eggs_fertilized as number | null,
-    avgBlastsDay5: row.avg_blasts_day5 as number | null,
-    avgBlastsTotal: row.avg_blasts_total as number | null,
-    avgPgtEuploid: row.avg_pgt_euploid as number | null,
-    medianEggsRetrieved: null,
-    outcomeCounts: {
-      positiveBeta: row.positive_beta as number,
-      negativeBeta: row.negative_beta as number,
-      chemical: row.chemical as number,
-      clinicalPregnancy: row.clinical_pregnancy as number,
-      miscarriage: row.miscarriage as number,
-      liveBirth: row.live_birth as number,
-      ongoing: row.ongoing as number,
-      notYet: row.not_yet as number,
-    },
-  }));
+  const groups: AggregateGroup[] = rows.map((row) => {
+    return {
+      label: row.label as string,
+      sampleSize: row.sample_size as number,
+      // Outcome measures are intentionally not published until a future
+      // disclosure-control design prevents nested-filter differencing.
+      avgEggsRetrieved: null,
+      avgEggsMature: null,
+      avgEggsFertilized: null,
+      avgBlastsDay5: null,
+      avgBlastsTotal: null,
+      avgPgtEuploid: null,
+      medianEggsRetrieved: null,
+      outcomeCounts: {
+        positiveBeta: 0, negativeBeta: 0, chemical: 0,
+        clinicalPregnancy: 0, miscarriage: 0, liveBirth: 0,
+        ongoing: 0, notYet: 0,
+      },
+    };
+  });
 
   // Total counts (unfiltered)
   const totals = db.prepare(`
@@ -157,7 +156,7 @@ export function getAggregateStats(
     WHERE p.is_active = 1
   `).get() as { total: number; with_outcomes: number };
 
-  // Filtered count (how many protocols match current filters, ignoring k-anonymity)
+  // Filtered count (suppressed below the public privacy threshold before return)
   const filtered = db.prepare(`
     SELECT COUNT(DISTINCT p.id) as total
     FROM protocols p
@@ -210,14 +209,16 @@ export function getAggregateStats(
     pctFertToBlast: pct(funnelRow.sum_blasts_for_fert_valid, funnelRow.sum_fert_for_blast_valid),
     pctMatureToBlast: pct(funnelRow.sum_blasts_for_mature_valid, funnelRow.sum_mature_for_blast_valid),
   };
+  void funnel; // Outcome aggregates are computed internally but not publicly released.
 
-  return {
+  return applyStatsPrivacy({
     groupBy: groupByCol,
     groups,
-    funnel,
+    funnel: null,
     totalRecords: totals.total,
     totalWithOutcomes: totals.with_outcomes,
     filteredRecords: filtered.total,
+    insufficientData: false,
     lastUpdated: new Date().toISOString(),
-  };
+  }, Object.values(filters).some(Boolean));
 }

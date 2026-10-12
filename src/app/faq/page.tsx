@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 const FAQS: { q: string; a: string | string[] }[] = [
   {
     q: 'What is IVF Project?',
-    a: 'IVF Project is a free, open-source tool that helps people going through IVF access published research, share their protocols anonymously, and see aggregate community data — all in one place.',
+    a: 'IVF Project is a free, open-source tool that helps people navigate published research, share protocols pseudonymously, and see aggregate community data — all in one place.',
   },
   {
     q: 'Is this medical advice?',
@@ -26,7 +26,7 @@ const FAQS: { q: string; a: string | string[] }[] = [
   },
   {
     q: 'How does IVF Explorer work?',
-    a: 'IVF Explorer connects to PubMed — the largest database of biomedical research — and uses AI to summarize relevant studies in plain language. It also draws on anonymized community-reported data when answering your questions. Every research claim includes a citation you can verify.',
+    a: 'IVF Explorer uses AI to help navigate PubMed search results and aggregate community protocol data. PubMed inclusion does not mean a paper has been endorsed or quality-rated, and an AI answer is not a verified evidence review. Check citations and discuss important claims with your clinician.',
   },
   {
     q: 'Is the AI always accurate?',
@@ -53,8 +53,8 @@ const FAQS: { q: string; a: string | string[] }[] = [
   {
     q: 'What data do you collect?',
     a: [
-      'Only the clinical details you provide — age, AMH range, protocol type, medications, supplements, country/state, and outcomes. Everything is self-reported and anonymized.',
-      'We never collect names, emails, IP addresses (beyond transient rate limiting), clinic names, or any of the 18 HIPAA identifiers. There are no cookies, no tracking, and no analytics.',
+      'The service stores sensitive clinical details you provide, including exact age, AMH/AFC, diagnoses, medications, country/state, donor information, protocol details, and outcomes. Records are pseudonymous, not guaranteed anonymous.',
+      'We do not ask for names or emails and do not persist IP addresses, which are used transiently for rate limiting. Please do not put direct identifiers or clinic names into chat. There are no analytics or advertising trackers.',
     ],
   },
   {
@@ -64,8 +64,8 @@ const FAQS: { q: string; a: string | string[] }[] = [
   {
     q: 'How accurate is the community data?',
     a: [
-      'Community data is entirely self-reported by anonymous users and has not been independently verified. It should be treated as anecdotal, not clinical evidence.',
-      'We apply privacy protections like data coarsening (age brackets, AMH ranges) and k-anonymity (minimum group sizes of 5) to prevent re-identification, which also means some fine-grained detail is intentionally lost.',
+      'Community data is entirely self-reported by pseudonymous users and has not been independently verified. It should be treated as anecdotal, not clinical evidence.',
+      'Public results use coarse ranges and suppress filtered groups smaller than five. These measures reduce but do not eliminate re-identification risk.',
     ],
   },
   {

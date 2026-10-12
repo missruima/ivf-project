@@ -4,11 +4,11 @@ import ShareClient from './ShareClient';
 export const metadata: Metadata = {
   title: 'Share Your Protocol',
   description:
-    'Anonymously share your IVF protocol through a simple chat — no accounts, no forms. Help others by contributing your experience.',
+    'Share a pseudonymous IVF protocol through a simple chat — no account or form. Do not include direct identifiers.',
   openGraph: {
     title: 'Share Your Protocol | IVF Project',
     description:
-      'Anonymously share your IVF protocol through a simple chat — no accounts, no forms.',
+      'Share a pseudonymous IVF protocol through a simple chat — no account or form.',
   },
   alternates: {
     canonical: '/share',

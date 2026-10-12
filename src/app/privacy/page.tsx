@@ -4,11 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export const metadata: Metadata = {
   title: 'Privacy & Data Practices',
   description:
-    'How IVF Project protects your privacy — no accounts, no tracking, no cookies, fully anonymized data with k-anonymity protections.',
+    'How IVF Project handles pseudonymous fertility data, AI chat messages, access passphrases, and aggregate reporting.',
   openGraph: {
     title: 'Privacy & Data Practices | IVF Project',
     description:
-      'How IVF Project protects your privacy — no accounts, no tracking, fully anonymized data.',
+      'How IVF Project handles pseudonymous fertility data and AI chat messages.',
   },
   alternates: {
     canonical: '/privacy',
@@ -30,8 +30,10 @@ export default function PrivacyPage() {
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
               When you share a protocol, we store only the clinical details you
-              provide — age, AMH range, protocol type, medications, supplements,
-              country/state, and outcomes. All of this is self-reported and anonymized.
+              provide — including exact age and age in months, AMH/AFC values or
+              ranges, diagnoses, medications and doses, country/state, donor
+              information, partner age, protocol details, and outcomes. This
+              sensitive health data is self-reported and pseudonymous, not anonymous.
             </p>
             <p>
               We also store a hashed version of your passphrase so you can
@@ -42,16 +44,14 @@ export default function PrivacyPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">What we never collect</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">What we do not ask for</CardTitle></CardHeader>
           <CardContent className="text-sm text-muted-foreground">
             <ul className="list-disc list-inside space-y-1">
               <li>Names, emails, or any contact information</li>
               <li>IP addresses (used only transiently for rate limiting)</li>
               <li>Clinic or provider names</li>
               <li>Browser cookies or tracking identifiers</li>
-              <li>None of the 18 HIPAA identifiers</li>
+              <li>Direct identifiers such as names, email addresses, phone numbers, or street addresses</li>
             </ul>
           </CardContent>
         </Card>
@@ -68,25 +68,27 @@ export default function PrivacyPage() {
               API data handling policies apply.
             </p>
             <p>
-              We instruct Claude not to store, repeat, or make use of any
-              personal information that may appear in messages. However, please
-              avoid sharing identifying details in the chat.
+              Research questions are also sent to PubMed to locate papers. We do
+              not retain live research questions in our response cache. Please
+              do not put names, contact details, clinic names, or other direct
+              identifiers into any chat.
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Data coarsening</CardTitle>
+            <CardTitle className="text-base">Aggregation and remaining risk</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              To protect your privacy, we coarsen data where possible. AMH and
-              AFC are stored as ranges. On the dashboard, ages are grouped into
-              brackets (e.g., 35–37) rather than shown individually. We never
-              show statistics for groups with fewer than 5 people, and we use
-              k-anonymity principles to prevent re-identification through
-              cross-tabulation.
+              Public statistics use age and clinical-data ranges, and filtered
+              cohorts smaller than five are suppressed. These controls reduce
+              risk but cannot guarantee anonymity: combinations of age,
+              location, rare diagnoses, and treatment details may still make a
+              person recognizable. IVF Project has not made a HIPAA Safe Harbor
+              or Expert Determination de-identification claim. See the{' '}
+              <a className="underline" href="https://www.hhs.gov/hipaa/for-professionals/special-topics/de-identification/index.html">HHS de-identification guidance</a>.
             </p>
           </CardContent>
         </Card>

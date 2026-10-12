@@ -19,7 +19,7 @@ export default function TermsPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
       <h1 className="text-2xl font-semibold text-center mb-2">Terms of Use</h1>
       <p className="text-center text-muted-foreground text-sm mb-8">
-        Last updated: February 2026
+        Last updated: October 2026
       </p>
 
       <div className="space-y-6">
@@ -58,7 +58,7 @@ export default function TermsPage() {
               reliability of any information on this site.
             </p>
             <p>
-              Community-reported data is self-reported by anonymous users and has
+              Community-reported data is self-reported by pseudonymous users and has
               not been independently verified. Research summaries are generated
               by AI and may contain errors or omissions. Published research
               citations link to PubMed but we do not control or endorse the
@@ -94,7 +94,7 @@ export default function TermsPage() {
             <p>
               When you share a protocol or outcome, you grant IVF Project a
               perpetual, non-exclusive license to store, aggregate, and display
-              that data in anonymized form. You may delete your data at any time
+              that data in aggregated form. You may delete your data at any time
               using your passphrase.
             </p>
             <p>

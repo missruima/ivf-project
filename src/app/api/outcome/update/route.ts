@@ -3,6 +3,7 @@ import { lookupByPassphrase, upsertOutcome } from '@/lib/services/protocol';
 import { getDb } from '@/lib/db';
 import { comparePassphrase } from '@/lib/services/passphrase';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
+import { normalizePassphrase } from '@/lib/services/passphrase';
 
 export async function POST(request: Request) {
   const clientId = getClientId(request, 'outcomeUpdate');
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  if (!body.passphrase || typeof body.passphrase !== 'string') {
+  const passphrase = normalizePassphrase(body.passphrase);
+  if (!passphrase) {
     return Response.json({ error: 'Passphrase is required.' }, { status: 400 });
   }
 
@@ -34,8 +36,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const passphrase = body.passphrase.trim().toLowerCase();
-
     if (body.protocolId) {
       // Multi-cycle mode: update a specific protocol's outcome
       const db = getDb();

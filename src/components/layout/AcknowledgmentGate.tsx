@@ -1,24 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 const STORAGE_KEY = 'ivfproject-acknowledged';
+const STORAGE_EVENT = 'ivfproject-acknowledgment-changed';
+
+function subscribe(callback: () => void): () => void {
+  window.addEventListener('storage', callback);
+  window.addEventListener(STORAGE_EVENT, callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(STORAGE_EVENT, callback);
+  };
+}
+
+function getSnapshot(): boolean {
+  try { return localStorage.getItem(STORAGE_KEY) === 'true'; } catch { return false; }
+}
 
 export function AcknowledgmentGate({ children }: { children: React.ReactNode }) {
-  const [acknowledged, setAcknowledged] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Check localStorage on mount
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      setAcknowledged(stored === 'true');
-    } catch {
-      // localStorage unavailable (private browsing etc.) — let them through
-      setAcknowledged(true);
-    }
-  }, []);
+  const acknowledged = useSyncExternalStore(subscribe, getSnapshot, () => false);
 
   const handleAcknowledge = () => {
     try {
@@ -26,13 +30,8 @@ export function AcknowledgmentGate({ children }: { children: React.ReactNode }) 
     } catch {
       // Ignore storage errors
     }
-    setAcknowledged(true);
+    window.dispatchEvent(new Event(STORAGE_EVENT));
   };
-
-  // Still loading — show nothing to avoid flash
-  if (acknowledged === null) {
-    return null;
-  }
 
   // Already acknowledged — render the app
   if (acknowledged) {
@@ -60,10 +59,9 @@ export function AcknowledgmentGate({ children }: { children: React.ReactNode }) 
               Important: This is not medical advice
             </p>
             <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-              IVF Project provides community-reported data and AI-generated
-              research summaries for informational purposes only. Nothing on
-              this site should replace guidance from your fertility specialist
-              or healthcare provider.
+              IVF Project provides self-reported protocol data and AI-generated
+              literature navigation for informational purposes only. Nothing
+              here should replace guidance from your fertility specialist.
             </p>
           </div>
 
@@ -80,6 +78,10 @@ export function AcknowledgmentGate({ children }: { children: React.ReactNode }) 
               <span className="shrink-0">•</span>
               <span>Always consult your doctor before making treatment decisions</span>
             </li>
+            <li className="flex gap-2">
+              <span className="shrink-0">•</span>
+              <span>Submitted data is pseudonymous, not guaranteed anonymous</span>
+            </li>
           </ul>
 
           <Button onClick={handleAcknowledge} className="w-full" size="lg">
@@ -88,13 +90,13 @@ export function AcknowledgmentGate({ children }: { children: React.ReactNode }) 
 
           <p className="text-[10px] text-muted-foreground text-center">
             By continuing, you agree to our{' '}
-            <a href="/terms" className="underline hover:text-foreground">
+            <Link href="/terms" className="underline hover:text-foreground">
               Terms of Use
-            </a>{' '}
+            </Link>{' '}
             and{' '}
-            <a href="/privacy" className="underline hover:text-foreground">
+            <Link href="/privacy" className="underline hover:text-foreground">
               Privacy Practices
-            </a>
+            </Link>
           </p>
         </CardContent>
       </Card>

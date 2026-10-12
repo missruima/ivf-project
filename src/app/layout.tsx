@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 const SITE_URL = 'https://ivfproject.org';
 const SITE_NAME = 'IVF Project';
 const DEFAULT_DESCRIPTION =
-  'A free, open-source, privacy-first tool for understanding IVF. Access PubMed research, share your protocol anonymously, and explore community-reported outcomes from 400+ cycles.';
+  'A free, open-source tool for understanding IVF. Navigate PubMed research, share a pseudonymous protocol, and explore 400+ community-shared protocol records.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -78,7 +78,7 @@ const jsonLd = {
       name: SITE_NAME,
       url: SITE_URL,
       description:
-        'A non-profit, open-source project providing evidence-based IVF research tools and anonymized community data to help people understand fertility treatments.',
+        'An open-source project providing IVF literature-navigation tools and pseudonymous community protocol data.',
     },
   ],
 };

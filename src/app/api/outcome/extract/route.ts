@@ -2,27 +2,30 @@ import Anthropic from '@anthropic-ai/sdk';
 import { OUTCOME_SYSTEM_PROMPT } from '@/lib/prompts/outcome-system';
 import { isRateLimited, getClientId, RATE_LIMITS } from '@/lib/rate-limit';
 import { checkTopicRelevance } from '@/lib/topic-guard';
+import { EXTRACTION_LIMITS, readBoundedJson, validateChatPayload } from '@/lib/request-validation';
 
 const anthropic = new Anthropic();
 
 export async function POST(request: Request) {
-  const clientId = getClientId(request, 'research');
-  if (isRateLimited(clientId, RATE_LIMITS.research)) {
+  const clientId = getClientId(request, 'outcomeExtract');
+  if (isRateLimited(clientId, RATE_LIMITS.outcomeExtract)) {
     return Response.json(
       { error: 'Please wait a moment before trying again.' },
       { status: 429 }
     );
   }
 
-  let body: { messages: { role: 'user' | 'assistant'; content: string }[] };
+  let rawBody: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'Invalid request body.' }, { status: 400 });
+    rawBody = await readBoundedJson(request);
+  } catch (error) {
+    const status = error instanceof Error && error.message === 'body_too_large' ? 413 : 400;
+    return Response.json({ error: status === 413 ? 'Request body is too large.' : 'Invalid request body.' }, { status });
   }
 
-  if (!body.messages || !Array.isArray(body.messages) || body.messages.length === 0) {
-    return Response.json({ error: 'Messages are required.' }, { status: 400 });
+  const body = validateChatPayload(rawBody, EXTRACTION_LIMITS);
+  if (!body) {
+    return Response.json({ error: 'Invalid or oversized messages.' }, { status: 400 });
   }
 
   // Topic relevance check
@@ -43,7 +46,7 @@ export async function POST(request: Request) {
             role: m.role,
             content: m.content,
           })),
-        });
+        }, { signal: AbortSignal.any([request.signal, AbortSignal.timeout(45000)]) });
 
         for await (const event of anthropicStream) {
           if (
@@ -74,8 +77,9 @@ export async function POST(request: Request) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-store, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

@@ -23,7 +23,7 @@ export default function ResearchClient() {
       <div className="text-center mb-4">
         <h1 className="text-2xl font-semibold">IVF Explorer</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Ask questions about IVF — answers combine published research and community data
+          AI-generated navigation of PubMed results and aggregate community protocol data
         </p>
       </div>
 
@@ -68,7 +68,7 @@ function EmptyState({ onSelect }: { onSelect: (q: string) => void }) {
         Ask anything about IVF research
       </p>
       <p className="text-xs text-muted-foreground mb-6">
-        Answers combine published PubMed papers with anonymized data from our community
+        PubMed inclusion is not an endorsement or quality review. Verify important claims with your clinician.
       </p>
       <div className="space-y-2">
         {SUGGESTED_QUESTIONS.map((q) => (

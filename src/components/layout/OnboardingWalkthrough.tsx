@@ -17,7 +17,7 @@ const STEPS = [
     icon: '💬',
     title: 'Share Your Protocol',
     description:
-      'Anonymously share your IVF protocol through a simple chat. No forms — just describe your cycle in your own words. Your data helps others.',
+      'Share a pseudonymous IVF protocol through a simple chat. Please leave out names, clinic names, and contact details.',
     href: '/share',
   },
   {

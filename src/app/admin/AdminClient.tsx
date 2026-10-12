@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, AreaChart, Area,
@@ -54,16 +54,7 @@ export default function AdminClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check sessionStorage on mount
-  useEffect(() => {
-    const stored = sessionStorage.getItem('admin_secret');
-    if (stored) {
-      setSecret(stored);
-      setIsAuthed(true);
-    }
-  }, []);
-
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
     try {
@@ -74,28 +65,26 @@ export default function AdminClient() {
         setIsAuthed(false);
         sessionStorage.removeItem('admin_secret');
         setError('Invalid password.');
-        return;
+        return false;
       }
       if (!res.ok) throw new Error('Failed to load');
       const data = await res.json();
       setStats(data);
+      return true;
     } catch {
       setError('Failed to load admin statistics.');
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, [secret]);
 
-  // Fetch when authed
-  useEffect(() => {
-    if (!isAuthed) return;
-    fetchStats();
-  }, [isAuthed, fetchStats]);
-
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!secret.trim()) return;
-    sessionStorage.setItem('admin_secret', secret);
-    setIsAuthed(true);
+    if (await fetchStats()) {
+      sessionStorage.setItem('admin_secret', secret);
+      setIsAuthed(true);
+    }
   };
 
   // ---- Login screen ----
@@ -132,7 +121,7 @@ export default function AdminClient() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchStats} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={() => { void fetchStats(); }} disabled={isLoading}>
             {isLoading ? 'Loading...' : 'Refresh'}
           </Button>
           <Button

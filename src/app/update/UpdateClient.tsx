@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import Link from 'next/link';
 import { useChat } from '@/hooks/useChat';
 import { ChatWindow } from '@/components/chat/ChatWindow';
 import { ChatInput } from '@/components/chat/ChatInput';
@@ -514,7 +515,7 @@ export default function UpdateClient() {
           even if just for a while.
         </p>
         <Button asChild variant="outline">
-          <a href="/">Return Home</a>
+          <Link href="/">Return Home</Link>
         </Button>
       </div>
     );
@@ -530,7 +531,7 @@ export default function UpdateClient() {
         full range of possibilities.
       </p>
       <Button asChild>
-        <a href="/dashboard">View Community Data</a>
+        <Link href="/dashboard">View Community Data</Link>
       </Button>
     </div>
   );

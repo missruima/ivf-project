@@ -41,11 +41,12 @@ export interface FunnelStats {
 }
 
 export interface StatsResponse {
-  groupBy: 'age' | 'age_bracket' | 'protocol_type' | 'amh_range';
+  groupBy: 'age_bracket' | 'protocol_type' | 'amh_range';
   groups: AggregateGroup[];
-  funnel: FunnelStats;
+  funnel: FunnelStats | null;
   totalRecords: number;
   totalWithOutcomes: number;
-  filteredRecords: number;
+  filteredRecords: number | null;
+  insufficientData: boolean;
   lastUpdated: string;
 }
